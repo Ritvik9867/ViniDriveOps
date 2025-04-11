@@ -1,0 +1,34 @@
+name: vini_drive_ops
+description: A driver and admin management app with Flutter frontend and Google Apps Script backend.
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  http: ^1.1.0
+  shared_preferences: ^2.2.0
+  image_picker: ^1.0.1
+  intl: ^0.18.1
+  provider: ^6.0.5
+  url_launcher: ^6.1.12
+  file_picker: ^5.3.3
+  path_provider: ^2.1.0
+  flutter_secure_storage: ^8.0.0
+  charts_flutter: ^0.12.0
+  pdf: ^3.10.4
+  permission_handler: ^10.4.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.2
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
