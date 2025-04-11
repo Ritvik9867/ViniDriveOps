@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import '../services/auth_service.dart';
 
 class RegistrationScreen extends StatefulWidget {
