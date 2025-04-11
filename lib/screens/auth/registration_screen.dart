@@ -13,6 +13,7 @@ class RegistrationScreen extends StatefulWidget {
 class _RegistrationScreenState extends State<RegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
@@ -48,6 +49,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     try {
       final result = await _authService.register(
         name: _nameController.text,
+        email: _emailController.text,
         phone: _phoneController.text,
         password: _passwordController.text,
         profileImage: _profileImage,
@@ -81,6 +83,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -144,6 +147,24 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your name';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your email';
+                  }
+                  if (!value.contains('@')) {
+                    return 'Please enter a valid email';
                   }
                   return null;
                 },
