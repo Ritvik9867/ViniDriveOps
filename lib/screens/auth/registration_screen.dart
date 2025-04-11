@@ -1,6 +1,4 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../services/auth_service.dart';
 
 class RegistrationScreen extends StatefulWidget {
@@ -17,26 +15,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
-  final _imagePicker = ImagePicker();
   
   bool _isLoading = false;
   String? _errorMessage;
-  File? _profileImage;
-
-  Future<void> _pickImage() async {
-    try {
-      final pickedFile = await _imagePicker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null) {
-        setState(() {
-          _profileImage = File(pickedFile.path);
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to pick image. Please try again.';
-      });
-    }
-  }
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
@@ -52,7 +33,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         email: _emailController.text,
         phone: _phoneController.text,
         password: _passwordController.text,
-        profileImage: _profileImage,
+
       );
 
       if (!mounted) return;
@@ -102,42 +83,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.grey[200],
-                      backgroundImage: _profileImage != null
-                          ? FileImage(_profileImage!)
-                          : null,
-                      child: _profileImage == null
-                          ? const Icon(Icons.person, size: 50)
-                          : null,
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.blue,
-                          shape: BoxShape.circle,
-                        ),
-                        child: InkWell(
-                          onTap: _pickImage,
-                          child: const Icon(
-                            Icons.camera_alt,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
+
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(

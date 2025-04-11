@@ -38,7 +38,6 @@ class AuthService {
     required String email,
     required String password,
     required String phone,
-    File? profileImage,
   }) async {
     try {
       final response = await http.post(
