@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
-import '../../models/driver.dart';
 
 class DriverDashboard extends StatefulWidget {
   const DriverDashboard({super.key});
