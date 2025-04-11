@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+import '../../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,13 +10,13 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
   bool _isLoading = false;
   String? _errorMessage;
 
-  Future<void> _handleLogin() async {
+  Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -26,33 +26,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final result = await _authService.login(
-        _emailController.text.trim(),
-        _passwordController.text,
+        phone: _phoneController.text,
+        password: _passwordController.text,
       );
 
       if (!mounted) return;
 
       if (result['success']) {
-        final role = await _authService.getUserRole();
-        if (role == 'admin') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const AdminDashboard()),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const DriverDashboard()),
-          );
-        }
+        Navigator.pushReplacementNamed(
+          context,
+          result['data']['role'] == 'admin' ? '/admin' : '/driver',
+        );
       } else {
         setState(() {
-          _errorMessage = result['message'] ?? 'Login failed. Please try again.';
+          _errorMessage = result['message'];
         });
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'An error occurred. Please try again.';
+        _errorMessage = 'Failed to login. Please try again.';
       });
     } finally {
       if (mounted) {
@@ -61,6 +53,13 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -77,28 +76,24 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text(
-                    'ViniDriveOps',
-                    textAlign: TextAlign.center,
+                    'Welcome Back',
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue,
                     ),
+                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 32),
                   TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email),
+                      labelText: 'Phone Number',
+                      prefixIcon: Icon(Icons.phone),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Please enter a valid email';
+                        return 'Please enter your phone number';
                       }
                       return null;
                     },
@@ -115,33 +110,28 @@ class _LoginScreenState extends State<LoginScreen> {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your password';
                       }
-                      if (value.length < 6) {
-                        return 'Password must be at least 6 characters';
-                      }
                       return null;
                     },
                   ),
-                  if (_errorMessage != null) ...[                    
-                    const SizedBox(height: 16),
+                  if (_errorMessage != null) ...[                    const SizedBox(height: 16),
                     Text(
                       _errorMessage!,
-                      style: const TextStyle(
-                        color: Colors.red,
-                        fontSize: 14,
-                      ),
+                      style: const TextStyle(color: Colors.red),
                       textAlign: TextAlign.center,
                     ),
                   ],
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: _isLoading ? null : _handleLogin,
+                    onPressed: _isLoading ? null : _login,
                     child: _isLoading
                         ? const SizedBox(
                             height: 20,
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Text('Login'),
@@ -149,12 +139,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 16),
                   TextButton(
                     onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const RegistrationScreen()),
-                      );
+                      Navigator.pushNamed(context, '/register');
                     },
-                    child: const Text('New Driver? Register here'),
+                    child: const Text('Don\'t have an account? Register'),
                   ),
                 ],
               ),
@@ -162,47 +149,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-}
-
-// Placeholder classes for navigation
-class AdminDashboard extends StatelessWidget {
-  const AdminDashboard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('Admin Dashboard')),
-    );
-  }
-}
-
-class DriverDashboard extends StatelessWidget {
-  const DriverDashboard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('Driver Dashboard')),
-    );
-  }
-}
-
-class RegistrationScreen extends StatelessWidget {
-  const RegistrationScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('Registration Screen')),
     );
   }
 }
