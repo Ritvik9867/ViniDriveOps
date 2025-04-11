@@ -26,8 +26,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final result = await _authService.login(
-        phone: _phoneController.text,
-        password: _passwordController.text,
+        _phoneController.text,
+        _passwordController.text,
       );
 
       if (!mounted) return;
@@ -86,14 +86,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 32),
                   TextFormField(
                     controller: _phoneController,
-                    keyboardType: TextInputType.phone,
+                    keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
-                      labelText: 'Phone Number',
-                      prefixIcon: Icon(Icons.phone),
+                      labelText: 'Email',
+                      prefixIcon: Icon(Icons.email),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your phone number';
+                        return 'Please enter your email';
+                      }
+                      if (!value.contains('@')) {
+                        return 'Please enter a valid email';
                       }
                       return null;
                     },
