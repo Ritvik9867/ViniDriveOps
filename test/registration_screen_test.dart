@@ -29,6 +29,20 @@ void main() {
     testWidgets('validates email format', (WidgetTester tester) async {
       await tester.pumpWidget(const MaterialApp(home: RegistrationScreen()));
       
+      // Enter invalid email
+      await tester.enterText(find.byType(TextFormField).at(2), 'invalid-email');
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+      
+      expect(find.text('Please enter a valid email'), findsOneWidget);
+      
+      // Enter valid email
+      await tester.enterText(find.byType(TextFormField).at(2), 'test@example.com');
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+      
+      expect(find.text('Please enter a valid email'), findsNothing);
+      
       await tester.enterText(find.widgetWithText(TextFormField, 'Email'), 'invalid-email');
       await tester.tap(find.byType(ElevatedButton));
       await tester.pump();

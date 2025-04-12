@@ -4,6 +4,12 @@ import 'package:vini_drive_ops/screens/driver/dashboard_screen.dart';
 
 void main() {
   group('DriverDashboard Widget Tests', () {
+    // Setup and teardown for each test
+    setUp(() {});
+    tearDown(() {
+      // Ensure all timers are properly disposed
+      WidgetsBinding.instance.resetEpoch();
+    });
     testWidgets('renders driver dashboard elements correctly', (WidgetTester tester) async {
       await tester.pumpWidget(const MaterialApp(home: DriverDashboardScreen()));
 
