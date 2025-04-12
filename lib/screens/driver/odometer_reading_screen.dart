@@ -36,18 +36,22 @@ class _OdometerReadingScreenState extends State<OdometerReadingScreen> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to capture image')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to capture image')),
+        );
+      }
     }
   }
 
   Future<void> _submitReading() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedImage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add an odometer image')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please add an odometer image')),
+        );
+      }
       return;
     }
 
@@ -75,21 +79,27 @@ class _OdometerReadingScreenState extends State<OdometerReadingScreen> {
       if (!mounted) return;
 
       if (result['success']) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  '${widget.isStarting ? "Starting" : "Closing"} odometer reading submitted successfully')),
-        );
-        Navigator.pop(context, true);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    '${widget.isStarting ? "Starting" : "Closing"} odometer reading submitted successfully')),
+          );
+        }
+        if (mounted) {
+          Navigator.pop(context, true);
+        }
       } else {
         setState(() {
           _errorMessage = result['message'] ?? 'Failed to submit reading';
         });
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'An error occurred. Please try again.';
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'An error occurred. Please try again.';
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
