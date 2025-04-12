@@ -9,13 +9,14 @@ on:
 env:
   FLUTTER_VERSION: '3.22.0'
   JAVA_VERSION: '17'
-  DART_SDK_VERSION: '>=3.7.2 <4.0.0'
+  DART_SDK_VERSION: '>=3.7.2 <3.8.0'  # More specific version constraint
+  GRADLE_VERSION: '7.6'
 
 jobs:
   validate-setup:
     name: Validate Project Setup
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5  # Reduced from 10 as setup validation is usually quick
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -37,12 +38,42 @@ jobs:
           fi
         shell: bash
 
-  build:
-    name: Build and Test
+  code-quality:
+    name: Code Quality Checks
     needs: validate-setup
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+          cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Check code formatting
+        run: |
+          echo "Checking code formatting..."
+          flutter format --set-exit-if-changed .
+
+      - name: Analyze project
+        run: |
+          echo "Running Flutter analyze..."
+          flutter analyze
+        # Removed the || exit 0 to make the workflow fail on analysis errors
+
+  build-and-test:
+    name: Build and Test
+    needs: code-quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 45  # Increased from 30 for larger projects
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -61,15 +92,17 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
           cache: true
+          cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
 
       - name: Cache Pub dependencies
         uses: actions/cache@v3
         with:
           path: |
-            ${{ env.PUB_CACHE }}
             ${{ runner.tool_cache }}/flutter
             ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+            ~/AppData/Local/Pub/Cache
+            ~/Library/Caches/Pub
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
           restore-keys: |
             ${{ runner.os }}-pub-
 
@@ -80,34 +113,31 @@ jobs:
           flutter pub get
           echo "Dependencies installed successfully"
 
-      - name: Analyze project
-        run: |
-          echo "Running Flutter analyze..."
-          flutter analyze || (
-            echo "::warning::Flutter analyze found issues. Check the logs for details."
-            exit 0
-          )
-
       - name: Run tests
         run: |
           echo "Running Flutter tests..."
-          flutter test --coverage || (
-            echo "::warning::Some tests failed. Check the test results artifact for details."
-            exit 0
-          )
+          flutter test --coverage --machine > test-report.json
+          flutter test --coverage --test-randomize-ordering-seed random
 
       - name: Build Android APK
         run: |
           echo "Building release APK..."
-          flutter build apk --release --verbose
+          flutter build apk --release
+          
+      - name: Build Android App Bundle
+        run: |
+          echo "Building App Bundle..."
+          flutter build appbundle --release
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         if: success()
         with:
           name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 7
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+          retention-days: 14
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -117,7 +147,8 @@ jobs:
           path: |
             coverage/
             test/reports/
-          retention-days: 7
+            test-report.json
+          retention-days: 14
 
       - name: Build status summary
         if: always()
@@ -125,15 +156,23 @@ jobs:
           echo "Build Status Summary:"
           echo "-------------------"
           echo "✓ Project setup validation"
+          echo "✓ Code quality checks"
           echo "✓ Dependencies installation"
           if [ -f "coverage/lcov.info" ]; then
             echo "✓ Tests executed (results in artifacts)"
           else
-            echo "⚠ Tests skipped or failed (check logs)"
+            echo "❌ Tests failed"
+            exit 1
           fi
           if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
             echo "✓ APK build successful"
           else
             echo "❌ APK build failed"
+            exit 1
+          fi
+          if [ -f "build/app/outputs/bundle/release/app-release.aab" ]; then
+            echo "✓ App Bundle build successful"
+          else
+            echo "❌ App Bundle build failed"
             exit 1
           fi

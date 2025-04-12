@@ -9,7 +9,8 @@ class DriverDashboardScreen extends StatefulWidget {
   State<DriverDashboardScreen> createState() => _DriverDashboardScreenState();
 }
 
-class _DriverDashboardScreenState extends State<DriverDashboardScreen> with AutomaticKeepAliveClientMixin {
+class _DriverDashboardScreenState extends State<DriverDashboardScreen>
+    with AutomaticKeepAliveClientMixin {
   Timer? _statusUpdateTimer;
   Timer? _locationUpdateTimer;
 
@@ -52,6 +53,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> with Auto
     _locationUpdateTimer?.cancel();
     super.dispose();
   }
+
   bool _isAvailable = true;
   final List<Map<String, dynamic>> _recentTrips = const [
     {
@@ -94,7 +96,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> with Auto
     try {
       await Future.delayed(const Duration(milliseconds: 500));
       if (!mounted) return;
-      
+
       // Navigate to trip details
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -156,11 +158,11 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> with Auto
               'Earnings',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            Card(
+            const Card(
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: EdgeInsets.all(16.0),
                 child: Column(
-                  children: const [
+                  children: [
                     Text('Today\'s Earnings: \$120.00'),
                     Text('This Week: \$750.00'),
                   ],
