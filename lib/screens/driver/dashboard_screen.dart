@@ -24,26 +24,44 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> with Auto
 
   void _startTimers() {
     // Timer for periodic status updates
-    _statusUpdateTimer = Timer.periodic(const Duration(minutes: 5), (_) {
-      if (mounted) {
-        _updateDriverStatus();
+    _statusUpdateTimer = Timer.periodic(const Duration(minutes: 5), (_) async {
+      if (!mounted) return;
+      try {
+        await _updateDriverStatus();
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update status')),
+        );
       }
     });
 
     // Timer for location updates
-    _locationUpdateTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) {
-        _updateDriverLocation();
+    _locationUpdateTimer = Timer.periodic(const Duration(minutes: 1), (_) async {
+      if (!mounted) return;
+      try {
+        await _updateDriverLocation();
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update location')),
+        );
       }
     });
   }
 
   Future<void> _updateDriverStatus() async {
     // Implementation for status update
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    // Add your status update logic here
   }
 
   Future<void> _updateDriverLocation() async {
     // Implementation for location update
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    // Add your location update logic here
   }
 
   @override
