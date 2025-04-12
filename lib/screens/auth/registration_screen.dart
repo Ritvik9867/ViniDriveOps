@@ -4,11 +4,9 @@ import 'package:email_validator/email_validator.dart';
 
 class RegistrationScreen extends StatefulWidget {
   final AuthService authService;
-  
-  const RegistrationScreen({
-    super.key,
-    required this.authService,
-  });
+
+  const RegistrationScreen({Key? key, required this.authService})
+      : super(key: key);
 
   @override
   State<RegistrationScreen> createState() => _RegistrationScreenState();
@@ -182,6 +180,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       labelText: 'Full Name',
                       prefixIcon: Icon(Icons.person_outline),
                       hintText: 'Enter your full name',
+                      border: OutlineInputBorder(),
                     ),
                     textCapitalization: TextCapitalization.words,
                     keyboardType: TextInputType.name,
@@ -195,6 +194,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       labelText: 'Email',
                       prefixIcon: Icon(Icons.email_outlined),
                       hintText: 'Enter your email address',
+                      border: OutlineInputBorder(),
                     ),
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
@@ -207,6 +207,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       labelText: 'Phone Number',
                       prefixIcon: Icon(Icons.phone_outlined),
                       hintText: 'Enter your phone number',
+                      border: OutlineInputBorder(),
                     ),
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.next,
@@ -231,6 +232,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         },
                       ),
                       hintText: 'Enter your password',
+                      border: const OutlineInputBorder(),
                     ),
                     obscureText: _obscurePassword,
                     textInputAction: TextInputAction.next,
@@ -255,6 +257,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         },
                       ),
                       hintText: 'Confirm your password',
+                      border: const OutlineInputBorder(),
                     ),
                     obscureText: _obscureConfirmPassword,
                     textInputAction: TextInputAction.done,
