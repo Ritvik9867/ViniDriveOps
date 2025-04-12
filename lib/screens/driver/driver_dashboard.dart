@@ -136,7 +136,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
                       children: [
                         _buildStatCard(
                           'Today\'s Earnings',
-                          _currencyFormat.format(_dashboardData?['todayEarnings'] ?? 0),
+                          _currencyFormat
+                              .format(_dashboardData?['todayEarnings'] ?? 0),
                           Icons.monetization_on,
                         ),
                         const SizedBox(height: 8),
@@ -165,7 +166,8 @@ class _DriverDashboardState extends State<DriverDashboard> {
                             Expanded(
                               child: _buildStatCard(
                                 'Cash Collected',
-                                _currencyFormat.format(_dashboardData?['cashCollected'] ?? 0),
+                                _currencyFormat.format(
+                                    _dashboardData?['cashCollected'] ?? 0),
                                 Icons.account_balance_wallet,
                               ),
                             ),

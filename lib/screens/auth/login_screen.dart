@@ -121,7 +121,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-                  if (_errorMessage != null) ...[                    const SizedBox(height: 16),
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 16),
                     Text(
                       _errorMessage!,
                       style: const TextStyle(color: Colors.red),

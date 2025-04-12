@@ -52,73 +52,74 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Trip #${widget.tripId}',
-                      style: Theme.of(context).textTheme.headlineSmall,
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Trip #${widget.tripId}',
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              const Icon(Icons.access_time),
+                              const SizedBox(width: 8),
+                              Text(
+                                  'Trip Duration: ${_tripDetails!['duration']}'),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.attach_money),
+                              const SizedBox(width: 8),
+                              Text('Fare: ${_tripDetails!['fare']}'),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        const Icon(Icons.access_time),
-                        const SizedBox(width: 8),
-                        Text('Trip Duration: ${_tripDetails!['duration']}'),
-                      ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Route Details',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.location_on),
+                              const SizedBox(width: 8),
+                              Text('Pickup: ${_tripDetails!['pickup']}'),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.flag),
+                              const SizedBox(width: 8),
+                              Text('Dropoff: ${_tripDetails!['dropoff']}'),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.attach_money),
-                        const SizedBox(width: 8),
-                        Text('Fare: ${_tripDetails!['fare']}'),
-                      ],
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Route Details',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on),
-                        const SizedBox(width: 8),
-                        Text('Pickup: ${_tripDetails!['pickup']}'),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.flag),
-                        const SizedBox(width: 8),
-                        Text('Dropoff: ${_tripDetails!['dropoff']}'),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -17,7 +17,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _authService = AuthService();
-  
+
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -129,13 +129,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         );
       } else {
         setState(() {
-          _errorMessage = result['message'] as String? ?? 
+          _errorMessage = result['message'] as String? ??
               'Registration failed. Please try again.';
         });
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'An error occurred. Please check your connection and try again.';
+        _errorMessage =
+            'An error occurred. Please check your connection and try again.';
       });
     } finally {
       if (mounted) {
@@ -216,7 +217,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
                         ),
                         onPressed: () {
                           setState(() {
@@ -238,7 +241,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                          _obscureConfirmPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
                         ),
                         onPressed: () {
                           setState(() {
@@ -279,9 +284,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   ),
                   const SizedBox(height: 16),
                   TextButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () => Navigator.pop(context),
+                    onPressed: _isLoading ? null : () => Navigator.pop(context),
                     child: const Text('Already have an account? Login'),
                   ),
                 ],

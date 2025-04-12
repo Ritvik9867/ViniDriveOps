@@ -218,7 +218,7 @@ class _LogTripScreenState extends State<LogTripScreen> {
                     });
                   },
                 ),
-                if (_hasToll) ...[                  
+                if (_hasToll) ...[
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _tollController,
@@ -243,7 +243,7 @@ class _LogTripScreenState extends State<LogTripScreen> {
                     },
                   ),
                 ],
-                if (_errorMessage != null) ...[                    
+                if (_errorMessage != null) ...[
                   const SizedBox(height: 16),
                   Text(
                     _errorMessage!,
@@ -263,7 +263,8 @@ class _LogTripScreenState extends State<LogTripScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : const Text('Submit Trip'),

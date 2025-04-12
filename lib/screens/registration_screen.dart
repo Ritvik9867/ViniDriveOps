@@ -25,9 +25,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   Future<void> _pickImage() async {
     try {
-      final pickedFile = await _imagePicker.pickImage(source: ImageSource.gallery);
+      final pickedFile =
+          await _imagePicker.pickImage(source: ImageSource.gallery);
       if (!mounted) return;
-      
+
       if (pickedFile != null) {
         setState(() {
           _profileImage = File(pickedFile.path);
@@ -35,7 +36,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to pick image')),
       );
@@ -53,31 +54,39 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     try {
       final result = await _authService.register(
         name: _nameController.text.trim(),
-        email: _emailController.text.trim(),
+        email: _emailController.text.trim().toLowerCase(),
         password: _passwordController.text,
         phone: _phoneController.text.trim(),
       );
 
       if (!mounted) return;
 
-      if (result['success']) {
+      if (result['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registration successful! Please login.')),
+          const SnackBar(
+            content: Text('Registration successful! Please login.'),
+            backgroundColor: Colors.green,
+          ),
         );
         Navigator.pop(context); // Return to login screen
       } else {
         setState(() {
-          _errorMessage = result['message'] ?? 'Registration failed. Please try again.';
-          _isLoading = false;
+          _errorMessage = result['message'] as String? ??
+              'Registration failed. Please try again.';
         });
       }
     } catch (e) {
       if (!mounted) return;
-      
+
       setState(() {
         _errorMessage = 'An error occurred. Please try again.';
-        _isLoading = false;
       });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -99,139 +108,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               children: [
                 Center(
                   child: Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: Colors.grey[200],
-                    backgroundImage: _profileImage != null
-                        ? FileImage(_profileImage!)
-                        : null,
-                    child: _profileImage == null
-                        ? const Icon(Icons.person, size: 50)
-                        : null,
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: IconButton(
-                      icon: const Icon(Icons.camera_alt),
-                      onPressed: _pickImage,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Full Name',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.emailAddress,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
-                  }
-                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                    return 'Please enter a valid email';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _phoneController,
-                decoration: const InputDecoration(
-                  labelText: 'Phone Number',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.phone,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your phone number';
-                  }
-                  if (!RegExp(r'^\+?[1-9]\d{1,14}$').hasMatch(value)) {
-                    return 'Please enter a valid phone number';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordController,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(),
-                ),
-                obscureText: true,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a password';
-                  }
-                  if (value.length < 6) {
-                    return 'Password must be at least 6 characters';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _confirmPasswordController,
-                decoration: const InputDecoration(
-                  labelText: 'Confirm Password',
-                  border: OutlineInputBorder(),
-                ),
-                obscureText: true,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please confirm your password';
-                  }
-                  if (value != _passwordController.text) {
-                    return 'Passwords do not match';
-                  }
-                  return null;
-                },
-              ),
-              if (_errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _handleRegistration,
-                child: _isLoading
-                    ? const CircularProgressIndicator()
-                    : const Text('Register'),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('Already have an account?'),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Login'),
-                  ),
-                ],
-              ),
                     children: [
                       CircleAvatar(
                         radius: 50,
@@ -246,20 +122,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       Positioned(
                         bottom: 0,
                         right: 0,
-                        child: GestureDetector(
-                          onTap: _pickImage,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).primaryColor,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
+                        child: IconButton(
+                          icon: const Icon(Icons.camera_alt),
+                          onPressed: _pickImage,
                         ),
                       ),
                     ],
@@ -271,7 +136,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Full Name',
                     prefixIcon: Icon(Icons.person),
+                    border: OutlineInputBorder(),
                   ),
+                  textCapitalization: TextCapitalization.words,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your name';
@@ -282,11 +149,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
                     labelText: 'Email',
                     prefixIcon: Icon(Icons.email),
+                    border: OutlineInputBorder(),
                   ),
+                  keyboardType: TextInputType.emailAddress,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
@@ -300,11 +168,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _phoneController,
-                  keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
                     labelText: 'Phone Number',
                     prefixIcon: Icon(Icons.phone),
+                    border: OutlineInputBorder(),
                   ),
+                  keyboardType: TextInputType.phone,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your phone number';
@@ -318,11 +187,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: true,
                   decoration: const InputDecoration(
                     labelText: 'Password',
                     prefixIcon: Icon(Icons.lock),
+                    border: OutlineInputBorder(),
                   ),
+                  obscureText: true,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your password';
@@ -336,11 +206,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _confirmPasswordController,
-                  obscureText: true,
                   decoration: const InputDecoration(
                     labelText: 'Confirm Password',
                     prefixIcon: Icon(Icons.lock_outline),
+                    border: OutlineInputBorder(),
                   ),
+                  obscureText: true,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please confirm your password';
@@ -351,35 +222,39 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     return null;
                   },
                 ),
-                if (_errorMessage != null) ...[                    
-                  const SizedBox(height: 16),
-                  Text(
-                    _errorMessage!,
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontSize: 14,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
                 const SizedBox(height: 24),
+                if (_errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 ElevatedButton(
                   onPressed: _isLoading ? null : _handleRegistration,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
                   child: _isLoading
                       ? const SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : const Text('Register'),
                 ),
+                const SizedBox(height: 16),
                 TextButton(
-                  onPressed: () {
-                    // Navigate to login screen
-                  },
+                  onPressed: _isLoading ? null : () => Navigator.pop(context),
                   child: const Text('Already have an account? Login'),
                 ),
               ],

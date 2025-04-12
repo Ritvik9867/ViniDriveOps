@@ -33,9 +33,9 @@ class _AddAdvanceScreenState extends State<AddAdvanceScreen> {
         setState(() {
           _drivers = List<Map<String, String>>.from(
             result['data'].map((driver) => {
-              'id': driver['id'] as String,
-              'name': driver['name'] as String,
-            }),
+                  'id': driver['id'] as String,
+                  'name': driver['name'] as String,
+                }),
           );
         });
       }
@@ -165,7 +165,7 @@ class _AddAdvanceScreenState extends State<AddAdvanceScreen> {
                     return null;
                   },
                 ),
-                if (_errorMessage != null) ...[                    
+                if (_errorMessage != null) ...[
                   const SizedBox(height: 16),
                   Text(
                     _errorMessage!,
@@ -185,7 +185,8 @@ class _AddAdvanceScreenState extends State<AddAdvanceScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : const Text('Add Advance'),

@@ -58,7 +58,8 @@ class _OdometerReadingScreenState extends State<OdometerReadingScreen> {
 
     try {
       // First upload the image
-      final uploadResult = await _apiService.uploadImage(_selectedImage!, 'od_reading');
+      final uploadResult =
+          await _apiService.uploadImage(_selectedImage!, 'od_reading');
 
       if (!uploadResult['success']) {
         throw Exception(uploadResult['message']);
@@ -75,7 +76,9 @@ class _OdometerReadingScreenState extends State<OdometerReadingScreen> {
 
       if (result['success']) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${widget.isStarting ? "Starting" : "Closing"} odometer reading submitted successfully')),
+          SnackBar(
+              content: Text(
+                  '${widget.isStarting ? "Starting" : "Closing"} odometer reading submitted successfully')),
         );
         Navigator.pop(context, true);
       } else {
@@ -100,7 +103,8 @@ class _OdometerReadingScreenState extends State<OdometerReadingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.isStarting ? "Starting" : "Closing"} Odometer Reading'),
+        title: Text(
+            '${widget.isStarting ? "Starting" : "Closing"} Odometer Reading'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -174,7 +178,7 @@ class _OdometerReadingScreenState extends State<OdometerReadingScreen> {
                     ),
                   ),
                 ),
-                if (_errorMessage != null) ...[                    
+                if (_errorMessage != null) ...[
                   const SizedBox(height: 16),
                   Text(
                     _errorMessage!,
@@ -194,7 +198,8 @@ class _OdometerReadingScreenState extends State<OdometerReadingScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : const Text('Submit Reading'),

@@ -78,7 +78,8 @@ class _AdvanceRepaymentScreenState extends State<AdvanceRepaymentScreen> {
 
     try {
       // First upload the image
-      final uploadResult = await _apiService.uploadImage(_selectedImage!, 'payment');
+      final uploadResult =
+          await _apiService.uploadImage(_selectedImage!, 'payment');
 
       if (!uploadResult['success']) {
         throw Exception(uploadResult['message']);
@@ -94,7 +95,9 @@ class _AdvanceRepaymentScreenState extends State<AdvanceRepaymentScreen> {
 
       if (result['success']) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Repayment submitted successfully. Pending admin approval.')),
+          const SnackBar(
+              content: Text(
+                  'Repayment submitted successfully. Pending admin approval.')),
         );
         Navigator.pop(context, true);
       } else {
@@ -228,7 +231,7 @@ class _AdvanceRepaymentScreenState extends State<AdvanceRepaymentScreen> {
                     ),
                   ),
                 ),
-                if (_errorMessage != null) ...[                    
+                if (_errorMessage != null) ...[
                   const SizedBox(height: 16),
                   Text(
                     _errorMessage!,
@@ -248,7 +251,8 @@ class _AdvanceRepaymentScreenState extends State<AdvanceRepaymentScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : const Text('Submit Repayment'),
