@@ -1,61 +1,71 @@
 # Repository Secrets Setup Guide
 
-## 1. Google Cloud API Key Setup
+This guide explains how to set up the required secrets for the GitHub Actions workflow.
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable the Google Sheets API:
-   - Search for "Google Sheets API" in the search bar
-   - Click "Enable"
-4. Create credentials:
-   - Go to Credentials page
-   - Click "Create Credentials" > "API Key"
-   - Copy the generated API key
-   - (Optional but recommended) Restrict the API key to only Google Sheets API
+## Required Secrets
 
-Example API key format (for reference):
-```
-AIzaSyA1bC3dE4fG5hI6jK7lM8nO9pQ0rS-tUvW
+### 1. KEY_PROPERTIES
+This secret contains the key.properties file content for Android app signing.
+
+Format:
+```properties
+storePassword=your_keystore_password
+keyPassword=your_key_password
+keyAlias=your_key_alias
+storeFile=keystore.jks
 ```
 
-## 2. JWT Secret Generation
+### 2. KEYSTORE_FILE
+This secret contains the base64-encoded keystore file for Android app signing.
 
-For the JWT secret, we've auto-generated a secure random string:
+## Setting Up Secrets
+
+### Generate Keys
+1. Create a keystore file:
+```bash
+keytool -genkey -v -keystore keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
 ```
-8f7d3a2e1c9b4a5f6d0e8c7b4a3f2d1e9c8b7a6
+
+2. Convert keystore to base64:
+```bash
+base64 -i keystore.jks
 ```
 
-This is a 40-character hexadecimal string generated using cryptographically secure methods. You can also generate your own using:
-- Online tools like [RandomKeygen](https://randomkeygen.com/)
-- Command line: `openssl rand -hex 20`
+### Add Secrets to GitHub
 
-## 3. Adding Secrets to GitHub Repository
-
-1. Go to your repository on GitHub
-2. Navigate to Settings > Secrets and Variables > Actions
+1. Navigate to your repository's Settings
+2. Select "Secrets and variables" → "Actions"
 3. Click "New repository secret"
-4. Add the Google Sheets API key:
-   - Name: `GOOGLE_SHEETS_API_KEY`
-   - Value: Your Google Cloud API key
-5. Add the JWT secret:
-   - Name: `JWT_SECRET`
-   - Value: The generated secret string
-
-## Security Notes
-
-- Keep these secrets secure and never share them publicly
-- Regularly rotate the Google Cloud API key
-- If secrets are compromised, regenerate them immediately
-- The GitHub Actions workflow will automatically use these secrets
+4. Add each secret with its value
+5. Verify secrets are added correctly
 
 ## Verification
 
-After adding the secrets:
-1. Go to Actions tab in your repository
-2. Check if the workflow runs successfully
-3. Verify that the API calls work as expected
+1. Check repository settings
+2. Verify secret names match workflow file
+3. Run the workflow to test signing
 
-If you encounter any issues, check:
-- Secret names are exactly as specified
-- No extra spaces in the values
-- API key has necessary permissions
+## Security Notes
+
+- Keep your keystore password secure
+- Never commit keystore files to the repository
+- Regularly rotate keys for security
+- Follow Android signing best practices
+
+## Troubleshooting
+
+1. Workflow fails with signing error:
+   - Verify secret names and values
+   - Check keystore file encoding
+   - Validate key.properties format
+
+2. App won't install after signing:
+   - Verify keystore validity
+   - Check signing configuration
+   - Validate build configuration
+
+## Additional Resources
+
+- [Android App Signing Guide](https://developer.android.com/studio/publish/app-signing)
+- [GitHub Actions Secrets Guide](https://docs.github.com/en/actions/security-guides/encrypted-secrets)
+- [Flutter Android Release Guide](https://docs.flutter.dev/deployment/android)

@@ -158,14 +158,15 @@ jobs:
 
       - name: Setup Android signing
         if: github.event_name != 'pull_request'
-        env:
-          KEY_PROPERTIES: ${{ secrets.KEY_PROPERTIES }}
-          KEYSTORE_FILE: ${{ secrets.KEYSTORE_FILE }}
-        run: |
-          if [[ -n "$KEY_PROPERTIES" && -n "$KEYSTORE_FILE" ]]; then
-            echo "$KEY_PROPERTIES" > android/key.properties
-            echo "$KEYSTORE_FILE" | base64 -d > android/app/keystore.jks
-          fi
+        uses: timheuer/base64-to-file@v1.2
+        with:
+          fileName: 'keystore.jks'
+          fileDir: './android/app/'
+          encodedString: ${{ secrets.KEYSTORE_FILE }}
+
+      - name: Create key.properties
+        if: github.event_name != 'pull_request'
+        run: echo "${{ secrets.KEY_PROPERTIES }}" > android/key.properties
 
       - name: Run tests
         run: |
