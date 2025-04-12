@@ -15,7 +15,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
-  
+
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -33,7 +33,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         email: _emailController.text,
         phone: _phoneController.text,
         password: _passwordController.text,
-
       );
 
       if (!mounted) return;
@@ -83,7 +82,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(

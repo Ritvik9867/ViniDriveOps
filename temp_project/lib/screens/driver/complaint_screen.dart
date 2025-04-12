@@ -35,9 +35,9 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
         setState(() {
           _drivers = List<Map<String, String>>.from(
             result['data'].map((driver) => {
-              'id': driver['id'] as String,
-              'name': driver['name'] as String,
-            }),
+                  'id': driver['id'] as String,
+                  'name': driver['name'] as String,
+                }),
           );
         });
       }
@@ -89,7 +89,8 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
 
     try {
       // First upload the image
-      final uploadResult = await _apiService.uploadImage(_selectedImage!, 'complaint');
+      final uploadResult =
+          await _apiService.uploadImage(_selectedImage!, 'complaint');
 
       if (!uploadResult['success']) {
         throw Exception(uploadResult['message']);
@@ -228,7 +229,7 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
                     ),
                   ),
                 ),
-                if (_errorMessage != null) ...[                    
+                if (_errorMessage != null) ...[
                   const SizedBox(height: 16),
                   Text(
                     _errorMessage!,
@@ -248,7 +249,8 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : const Text('Submit Complaint'),

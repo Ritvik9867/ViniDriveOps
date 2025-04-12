@@ -39,12 +39,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
       if (result['success']) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registration successful! Please login.')),
+          const SnackBar(
+              content: Text('Registration successful! Please login.')),
         );
         Navigator.pop(context); // Return to login screen
       } else {
         setState(() {
-          _errorMessage = result['message'] ?? 'Registration failed. Please try again.';
+          _errorMessage =
+              result['message'] ?? 'Registration failed. Please try again.';
         });
       }
     } catch (e) {
@@ -160,7 +162,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     return null;
                   },
                 ),
-                if (_errorMessage != null) ...[                    
+                if (_errorMessage != null) ...[
                   const SizedBox(height: 16),
                   Text(
                     _errorMessage!,
@@ -180,7 +182,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : const Text('Register'),

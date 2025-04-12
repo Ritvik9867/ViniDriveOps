@@ -57,7 +57,8 @@ class _CNGExpenseScreenState extends State<CNGExpenseScreen> {
 
     try {
       // First upload the image
-      final uploadResult = await _apiService.uploadImage(_selectedImage!, 'cng_bill');
+      final uploadResult =
+          await _apiService.uploadImage(_selectedImage!, 'cng_bill');
 
       if (!uploadResult['success']) {
         throw Exception(uploadResult['message']);
@@ -216,7 +217,7 @@ class _CNGExpenseScreenState extends State<CNGExpenseScreen> {
                     ),
                   ),
                 ),
-                if (_errorMessage != null) ...[                    
+                if (_errorMessage != null) ...[
                   const SizedBox(height: 16),
                   Text(
                     _errorMessage!,
@@ -236,7 +237,8 @@ class _CNGExpenseScreenState extends State<CNGExpenseScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : const Text('Submit Expense'),

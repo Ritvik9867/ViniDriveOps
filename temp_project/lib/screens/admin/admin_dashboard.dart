@@ -36,9 +36,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
         setState(() {
           _drivers = List<Map<String, String>>.from(
             result['data'].map((driver) => {
-              'id': driver['id'] as String,
-              'name': driver['name'] as String,
-            }),
+                  'id': driver['id'] as String,
+                  'name': driver['name'] as String,
+                }),
           );
         });
       }
@@ -132,7 +132,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildPendingApprovals() {
     final pendingCNG = _dashboardData?['pendingApprovals']?['cng'] ?? [];
-    final pendingRepayments = _dashboardData?['pendingApprovals']?['repayments'] ?? [];
+    final pendingRepayments =
+        _dashboardData?['pendingApprovals']?['repayments'] ?? [];
 
     return Card(
       child: Padding(
@@ -150,8 +151,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
             const SizedBox(height: 16),
             if (pendingCNG.isEmpty && pendingRepayments.isEmpty)
               const Text('No pending approvals')
-            else ...[              
-              if (pendingCNG.isNotEmpty) ...[                
+            else ...[
+              if (pendingCNG.isNotEmpty) ...[
                 const Text(
                   'CNG Expenses',
                   style: TextStyle(fontWeight: FontWeight.bold),
@@ -198,7 +199,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   },
                 ),
               ],
-              if (pendingRepayments.isNotEmpty) ...[                
+              if (pendingRepayments.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 const Text(
                   'Advance Repayments',
@@ -359,7 +360,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             Expanded(
                               child: _buildStatCard(
                                 'Total Earnings',
-                                _currencyFormat.format(_dashboardData?['totalEarnings'] ?? 0),
+                                _currencyFormat.format(
+                                    _dashboardData?['totalEarnings'] ?? 0),
                                 Icons.monetization_on,
                               ),
                             ),
@@ -367,7 +369,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             Expanded(
                               child: _buildStatCard(
                                 'Total Expenses',
-                                _currencyFormat.format(_dashboardData?['totalExpenses'] ?? 0),
+                                _currencyFormat.format(
+                                    _dashboardData?['totalExpenses'] ?? 0),
                                 Icons.account_balance_wallet,
                               ),
                             ),
