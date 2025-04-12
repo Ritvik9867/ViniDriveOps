@@ -9,7 +9,7 @@ on:
 env:
   FLUTTER_VERSION: '3.22.0'
   JAVA_VERSION: '11'
-  DART_SDK_VERSION: '>=3.0.0 <4.0.0'
+  DART_SDK_VERSION: '>=3.7.2 <4.0.0'
 
 jobs:
   validate-setup:
@@ -53,6 +53,7 @@ jobs:
           distribution: 'temurin'
           java-version: ${{ env.JAVA_VERSION }}
           cache: 'gradle'
+          cache-dependency-path: "**/build.gradle*"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
