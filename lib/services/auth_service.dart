@@ -6,12 +6,12 @@ class AuthService {
   static const String _baseUrl = 'YOUR_GOOGLE_APPS_SCRIPT_DEPLOYMENT_URL';
   final _storage = const FlutterSecureStorage();
 
-  Future<Map<String, dynamic>> login(String email, String password) async {
+  Future<Map<String, dynamic>> login(String phone, String password) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl?action=login'),
         body: json.encode({
-          'email': email,
+          'phone': phone,
           'password': password,
         }),
         headers: {'Content-Type': 'application/json'},

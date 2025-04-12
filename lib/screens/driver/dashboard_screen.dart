@@ -7,7 +7,51 @@ class DriverDashboardScreen extends StatefulWidget {
   State<DriverDashboardScreen> createState() => _DriverDashboardScreenState();
 }
 
-class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
+import 'dart:async';
+
+class _DriverDashboardScreenState extends State<DriverDashboardScreen> with AutomaticKeepAliveClientMixin {
+  Timer? _statusUpdateTimer;
+  Timer? _locationUpdateTimer;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimers();
+  }
+
+  void _startTimers() {
+    // Timer for periodic status updates
+    _statusUpdateTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      if (mounted) {
+        _updateDriverStatus();
+      }
+    });
+
+    // Timer for location updates
+    _locationUpdateTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        _updateDriverLocation();
+      }
+    });
+  }
+
+  Future<void> _updateDriverStatus() async {
+    // Implementation for status update
+  }
+
+  Future<void> _updateDriverLocation() async {
+    // Implementation for location update
+  }
+
+  @override
+  void dispose() {
+    _statusUpdateTimer?.cancel();
+    _locationUpdateTimer?.cancel();
+    super.dispose();
+  }
   bool _isAvailable = true;
   final List<Map<String, dynamic>> _recentTrips = [
     {
@@ -54,10 +98,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
       // Navigate to trip details
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => Scaffold(
-            appBar: AppBar(title: const Text('Trip Details')),
-            body: Center(child: Text('Details for trip $tripId')),
-          ),
+          builder: (context) => TripDetailsScreen(tripId: tripId),
         ),
       );
     } catch (e) {
@@ -72,7 +113,15 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Driver Dashboard'),
+        title: const Text('ViniDriveOps'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(30),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text('Driver Dashboard',
+                style: Theme.of(context).textTheme.titleLarge),
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
