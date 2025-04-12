@@ -255,7 +255,7 @@ class ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.blue.withOpacity(0.1),
+      color: const Color(0x1A2196F3), // Colors.blue with 10% opacity
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,

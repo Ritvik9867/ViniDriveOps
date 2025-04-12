@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'trip_details_screen.dart';
 
 class DriverDashboardScreen extends StatefulWidget {
   const DriverDashboardScreen({super.key});
@@ -6,8 +8,6 @@ class DriverDashboardScreen extends StatefulWidget {
   @override
   State<DriverDashboardScreen> createState() => _DriverDashboardScreenState();
 }
-
-import 'dart:async';
 
 class _DriverDashboardScreenState extends State<DriverDashboardScreen> with AutomaticKeepAliveClientMixin {
   Timer? _statusUpdateTimer;
@@ -53,7 +53,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> with Auto
     super.dispose();
   }
   bool _isAvailable = true;
-  final List<Map<String, dynamic>> _recentTrips = [
+  final List<Map<String, dynamic>> _recentTrips = const [
     {
       'id': '1',
       'destination': 'Downtown Mall',
@@ -138,7 +138,7 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> with Auto
                 subtitle: const Text('Rating: 4.8'),
                 trailing: Switch(
                   value: _isAvailable,
-                  onChanged: (value) => _toggleAvailability(),
+                  onChanged: (_) => _toggleAvailability(),
                 ),
               ),
             ),
@@ -160,9 +160,9 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> with Auto
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
-                  children: [
-                    const Text('Today\'s Earnings: \$120.00'),
-                    const Text('This Week: \$750.00'),
+                  children: const [
+                    Text('Today\'s Earnings: \$120.00'),
+                    Text('This Week: \$750.00'),
                   ],
                 ),
               ),

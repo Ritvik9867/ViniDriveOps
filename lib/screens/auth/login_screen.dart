@@ -33,6 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (result['success']) {
+        if (!mounted) return;
         Navigator.pushReplacementNamed(
           context,
           result['data']['role'] == 'admin' ? '/admin' : '/driver',
@@ -65,6 +66,10 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('ViniDriveOps'),
+        elevation: 0,
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
