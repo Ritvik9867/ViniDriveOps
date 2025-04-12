@@ -47,14 +47,19 @@ void main() {
       expect(switchFinder, findsOneWidget);
 
       await tester.tap(switchFinder);
-      await tester.pump();
+      await tester.pumpAndSettle(); // Use pumpAndSettle to handle all animations and timers
 
       // Verify status change
       expect(find.text('Unavailable'), findsOneWidget);
     });
 
     testWidgets('navigates to trip details on tap', (WidgetTester tester) async {
-      await tester.pumpWidget(const MaterialApp(home: DriverDashboardScreen()));
+      await tester.pumpWidget(MaterialApp(
+        home: DriverDashboardScreen(),
+        routes: {
+          '/trip-details': (context) => Scaffold(appBar: AppBar(title: Text('Trip Details')))
+        },
+      ));
 
       final tripTile = find.byType(ListTile).first;
       await tester.tap(tripTile);
