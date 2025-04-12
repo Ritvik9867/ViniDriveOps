@@ -40,6 +40,7 @@ class _AddAdvanceScreenState extends State<AddAdvanceScreen> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to load drivers')),
       );
@@ -64,6 +65,7 @@ class _AddAdvanceScreenState extends State<AddAdvanceScreen> {
       if (!mounted) return;
 
       if (result['success']) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Advance added successfully')),
         );
@@ -74,6 +76,7 @@ class _AddAdvanceScreenState extends State<AddAdvanceScreen> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'An error occurred. Please try again.';
       });

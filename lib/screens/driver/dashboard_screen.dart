@@ -113,6 +113,8 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required by AutomaticKeepAliveClientMixin
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('ViniDriveOps'),

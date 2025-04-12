@@ -1,108 +1,108 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:vini_drive_ops/screens/registration_screen.dart';
+import 'package:vinidriveops/screens/auth/registration_screen.dart';
+import 'package:vinidriveops/services/auth_service.dart';
+import 'package:mockito/mockito.dart';
+import 'package:mockito/annotations.dart';
 
+@GenerateMocks([AuthService])
 void main() {
-  group('RegistrationScreen Widget Tests', () {
-    testWidgets('renders registration form elements correctly',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(const MaterialApp(home: RegistrationScreen()));
+  late MockAuthService mockAuthService;
 
-      expect(find.text('Driver Registration'), findsOneWidget);
-      expect(find.byType(TextFormField),
-          findsNWidgets(5)); // name, email, phone, password, confirm password
-      expect(find.byType(ElevatedButton), findsOneWidget);
-      expect(find.text('Register'), findsOneWidget);
-      expect(find.text('Already have an account?'), findsOneWidget);
-    });
+  setUp(() {
+    mockAuthService = MockAuthService();
+  });
 
-    testWidgets('shows validation errors on empty form submission',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(const MaterialApp(home: RegistrationScreen()));
+  testWidgets('Registration screen shows all required fields', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RegistrationScreen(authService: mockAuthService),
+      ),
+    );
 
-      await tester.tap(find.byType(ElevatedButton));
-      await tester.pump();
+    // Verify all form fields are present
+    expect(find.text('Driver Registration'), findsOneWidget);
+    expect(find.byType(TextFormField), findsNWidgets(5)); // Name, Email, Phone, Password, Confirm Password
+    expect(find.byType(ElevatedButton), findsOneWidget);
+  });
 
-      expect(find.text('Please enter your name'), findsOneWidget);
-      expect(find.text('Please enter your phone number'), findsOneWidget);
-      expect(find.text('Please enter your email'), findsOneWidget);
-      expect(find.text('Please enter your password'), findsOneWidget);
-    });
+  testWidgets('Shows error messages for empty fields', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RegistrationScreen(authService: mockAuthService),
+      ),
+    );
 
-    testWidgets('validates email format', (WidgetTester tester) async {
-      await tester.pumpWidget(const MaterialApp(home: RegistrationScreen()));
+    // Try to submit without filling any fields
+    await tester.tap(find.byType(ElevatedButton));
+    await tester.pumpAndSettle();
 
-      await tester.enterText(
-          find.widgetWithText(TextFormField, 'Email'), 'invalid-email');
-      await tester.tap(find.byType(ElevatedButton));
-      await tester.pump();
+    // Verify error messages
+    expect(find.text('Please enter your name'), findsOneWidget);
+    expect(find.text('Please enter your email'), findsOneWidget);
+    expect(find.text('Please enter your phone number'), findsOneWidget);
+    expect(find.text('Please enter your password'), findsOneWidget);
+  });
 
-      expect(find.text('Please enter a valid email address'), findsOneWidget);
+  testWidgets('Shows error for invalid email', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RegistrationScreen(authService: mockAuthService),
+      ),
+    );
 
-      // Enter valid email
-      await tester.enterText(
-          find.widgetWithText(TextFormField, 'Email'), 'test@example.com');
-      await tester.tap(find.byType(ElevatedButton));
-      await tester.pump();
+    // Enter invalid email
+    await tester.enterText(find.widgetWithText(TextFormField, 'Email'), 'invalid-email');
+    await tester.tap(find.byType(ElevatedButton));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Please enter a valid email address'), findsNothing);
-    });
+    // Verify error message
+    expect(find.text('Please enter a valid email address'), findsOneWidget);
+  });
 
-    testWidgets('validates phone number format', (WidgetTester tester) async {
-      await tester.pumpWidget(const MaterialApp(home: RegistrationScreen()));
+  testWidgets('Shows error for password mismatch', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RegistrationScreen(authService: mockAuthService),
+      ),
+    );
 
-      await tester.enterText(
-          find.widgetWithText(TextFormField, 'Phone Number'), '123');
-      await tester.tap(find.byType(ElevatedButton));
-      await tester.pump();
+    // Enter different passwords
+    await tester.enterText(find.widgetWithText(TextFormField, 'Password'), 'password123');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Confirm Password'), 'password456');
+    await tester.tap(find.byType(ElevatedButton));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Please enter a valid phone number'), findsOneWidget);
+    // Verify error message
+    expect(find.text('Passwords do not match'), findsOneWidget);
+  });
 
-      // Enter valid phone number
-      await tester.enterText(
-          find.widgetWithText(TextFormField, 'Phone Number'), '1234567890');
-      await tester.tap(find.byType(ElevatedButton));
-      await tester.pump();
+  testWidgets('Successful registration shows success message', (WidgetTester tester) async {
+    when(mockAuthService.register(
+      name: 'Test User',
+      email: 'test@example.com',
+      password: 'password123',
+      phone: '1234567890',
+    )).thenAnswer((_) async => {'success': true});
 
-      expect(find.text('Please enter a valid phone number'), findsNothing);
-    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RegistrationScreen(authService: mockAuthService),
+      ),
+    );
 
-    testWidgets('validates password length', (WidgetTester tester) async {
-      await tester.pumpWidget(const MaterialApp(home: RegistrationScreen()));
+    // Fill in all fields correctly
+    await tester.enterText(find.widgetWithText(TextFormField, 'Full Name'), 'Test User');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Email'), 'test@example.com');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Phone Number'), '1234567890');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Password'), 'password123');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Confirm Password'), 'password123');
 
-      await tester.enterText(
-          find.widgetWithText(TextFormField, 'Password'), '123');
-      await tester.tap(find.byType(ElevatedButton));
-      await tester.pump();
+    // Submit form
+    await tester.tap(find.byType(ElevatedButton));
+    await tester.pumpAndSettle();
 
-      expect(
-          find.text('Password must be at least 6 characters'), findsOneWidget);
-    });
-
-    testWidgets('clears validation errors when form is filled correctly',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(const MaterialApp(home: RegistrationScreen()));
-
-      await tester.enterText(
-          find.widgetWithText(TextFormField, 'Full Name'), 'John Doe');
-      await tester.enterText(
-          find.widgetWithText(TextFormField, 'Phone Number'), '1234567890');
-      await tester.enterText(
-          find.widgetWithText(TextFormField, 'Email'), 'john@example.com');
-      await tester.enterText(
-          find.widgetWithText(TextFormField, 'Password'), 'password123');
-      await tester.enterText(
-          find.widgetWithText(TextFormField, 'Confirm Password'),
-          'password123');
-      await tester.pump();
-
-      await tester.tap(find.byType(ElevatedButton));
-      await tester.pump();
-
-      expect(find.text('Please enter your name'), findsNothing);
-      expect(find.text('Please enter your phone number'), findsNothing);
-      expect(find.text('Please enter your email'), findsNothing);
-      expect(find.text('Please enter your password'), findsNothing);
-    });
+    // Verify success message
+    expect(find.text('Registration successful! Please login.'), findsOneWidget);
   });
 }

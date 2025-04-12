@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final AuthService authService;
+  
+  const LoginScreen({
+    super.key,
+    required this.authService,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -12,7 +17,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _authService = AuthService();
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -25,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final result = await _authService.login(
+      final result = await widget.authService.login(
         _phoneController.text,
         _passwordController.text,
       );

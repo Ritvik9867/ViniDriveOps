@@ -3,7 +3,12 @@ import '../../services/auth_service.dart';
 import 'package:email_validator/email_validator.dart';
 
 class RegistrationScreen extends StatefulWidget {
-  const RegistrationScreen({super.key});
+  final AuthService authService;
+  
+  const RegistrationScreen({
+    super.key,
+    required this.authService,
+  });
 
   @override
   State<RegistrationScreen> createState() => _RegistrationScreenState();
@@ -16,8 +21,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _authService = AuthService();
-
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -105,7 +108,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       final phone = _phoneController.text.trim();
       final password = _passwordController.text;
 
-      final result = await _authService.register(
+      final result = await widget.authService.register(
         name: name,
         email: email,
         phone: phone,

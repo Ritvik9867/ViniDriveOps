@@ -3,20 +3,42 @@ name: Flutter CI/CD
 on:
   push:
     branches: [main]
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'android/**'
+      - 'ios/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/**'
   pull_request:
     branches: [main]
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'android/**'
+      - 'ios/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   FLUTTER_VERSION: '3.22.0'
   JAVA_VERSION: '17'
-  DART_SDK_VERSION: '>=3.7.2 <3.8.0'  # More specific version constraint
+  DART_SDK_VERSION: '>=3.7.2 <3.8.0'
   GRADLE_VERSION: '7.6'
+  ANDROID_SDK_VERSION: '33'
 
 jobs:
   validate-setup:
     name: Validate Project Setup
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # Reduced from 10 as setup validation is usually quick
+    timeout-minutes: 5
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -55,6 +77,18 @@ jobs:
           cache: true
           cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
 
+      - name: Cache Pub dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ${{ runner.tool_cache }}/flutter
+            ~/.pub-cache
+            ~/AppData/Local/Pub/Cache
+            ~/Library/Caches/Pub
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -67,13 +101,16 @@ jobs:
         run: |
           echo "Running Flutter analyze..."
           flutter analyze
-        # Removed the || exit 0 to make the workflow fail on analysis errors
 
   build-and-test:
     name: Build and Test
     needs: code-quality
     runs-on: ubuntu-latest
-    timeout-minutes: 45  # Increased from 30 for larger projects
+    timeout-minutes: 45
+    strategy:
+      matrix:
+        build-type: [apk, appbundle]
+      fail-fast: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -85,6 +122,12 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: 'gradle'
           cache-dependency-path: "**/build.gradle*"
+
+      - name: Cache Gradle Wrapper
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('**/gradle-wrapper.properties') }}
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -113,27 +156,38 @@ jobs:
           flutter pub get
           echo "Dependencies installed successfully"
 
+      - name: Setup Android signing
+        if: github.event_name != 'pull_request'
+        env:
+          KEY_PROPERTIES: ${{ secrets.KEY_PROPERTIES }}
+          KEYSTORE_FILE: ${{ secrets.KEYSTORE_FILE }}
+        run: |
+          if [[ -n "$KEY_PROPERTIES" && -n "$KEYSTORE_FILE" ]]; then
+            echo "$KEY_PROPERTIES" > android/key.properties
+            echo "$KEYSTORE_FILE" | base64 -d > android/app/keystore.jks
+          fi
+
       - name: Run tests
         run: |
-          echo "Running Flutter tests..."
-          flutter test --coverage --machine > test-report.json
+          mkdir -p test/reports
+          flutter test --coverage --machine > test-report.json || true
           flutter test --coverage --test-randomize-ordering-seed random
 
-      - name: Build Android APK
+      - name: Build Android ${{ matrix.build-type }}
         run: |
-          echo "Building release APK..."
-          flutter build apk --release
-          
-      - name: Build Android App Bundle
-        run: |
-          echo "Building App Bundle..."
-          flutter build appbundle --release
+          if [ "${{ matrix.build-type }}" = "apk" ]; then
+            echo "Building release APK..."
+            flutter build apk --release
+          else
+            echo "Building App Bundle..."
+            flutter build appbundle --release
+          fi
 
-      - name: Upload APK artifact
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: release-apk
+          name: release-${{ matrix.build-type }}
           path: |
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/bundle/release/app-release.aab
@@ -143,7 +197,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results
+          name: test-results-${{ matrix.build-type }}
           path: |
             coverage/
             test/reports/
@@ -153,7 +207,7 @@ jobs:
       - name: Build status summary
         if: always()
         run: |
-          echo "Build Status Summary:"
+          echo "Build Status Summary for ${{ matrix.build-type }}:"
           echo "-------------------"
           echo "✓ Project setup validation"
           echo "✓ Code quality checks"
@@ -164,15 +218,18 @@ jobs:
             echo "❌ Tests failed"
             exit 1
           fi
-          if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
-            echo "✓ APK build successful"
+          if [ "${{ matrix.build-type }}" = "apk" ]; then
+            if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
+              echo "✓ APK build successful"
+            else
+              echo "❌ APK build failed"
+              exit 1
+            fi
           else
-            echo "❌ APK build failed"
-            exit 1
-          fi
-          if [ -f "build/app/outputs/bundle/release/app-release.aab" ]; then
-            echo "✓ App Bundle build successful"
-          else
-            echo "❌ App Bundle build failed"
-            exit 1
+            if [ -f "build/app/outputs/bundle/release/app-release.aab" ]; then
+              echo "✓ App Bundle build successful"
+            else
+              echo "❌ App Bundle build failed"
+              exit 1
+            fi
           fi
