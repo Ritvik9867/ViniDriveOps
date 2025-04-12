@@ -14,13 +14,13 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
       'id': '1',
       'destination': 'Downtown Mall',
       'date': '2024-01-20',
-      'amount': '$25.00'
+      'amount': '\$25.00'
     },
     {
       'id': '2',
       'destination': 'Airport',
       'date': '2024-01-19',
-      'amount': '$45.00'
+      'amount': '\$45.00'
     },
   ];
 
@@ -112,8 +112,8 @@ class _DriverDashboardScreenState extends State<DriverDashboardScreen> {
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   children: [
-                    const Text('Today\'s Earnings: $120.00'),
-                    const Text('This Week: $750.00'),
+                    const Text('Today\'s Earnings: \$120.00'),
+                    const Text('This Week: \$750.00'),
                   ],
                 ),
               ),

@@ -140,7 +140,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your full name';
+                      return 'Please enter your name';
                     }
                     return null;
                   },
@@ -158,7 +158,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       return 'Please enter your email';
                     }
                     if (!value.contains('@')) {
-                      return 'Please enter a valid email';
+                      return 'Please enter a valid email address';
                     }
                     return null;
                   },
@@ -191,7 +191,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter a password';
+                      return 'Please enter your password';
                     }
                     if (value.length < 6) {
                       return 'Password must be at least 6 characters';
@@ -241,6 +241,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           ),
                         )
                       : const Text('Register'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    // Navigate to login screen
+                  },
+                  child: const Text('Already have an account? Login'),
                 ),
               ],
             ),

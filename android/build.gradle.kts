@@ -1,4 +1,8 @@
 buildscript {
+    // Enable build cache
+    gradle.startParameter.buildCacheEnabled = true
+    gradle.startParameter.isOffline = false
+
     repositories {
         google()
         mavenCentral()
