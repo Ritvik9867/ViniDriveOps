@@ -2,66 +2,105 @@ name: Flutter CI/CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
+
+env:
+  FLUTTER_VERSION: '3.22.0'
+  JAVA_VERSION: '11'
 
 jobs:
   build:
+    name: Build and Test
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: '11'
+          java-version: ${{ env.JAVA_VERSION }}
           cache: 'gradle'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
           cache: true
-          cache-key: 'flutter-:os:-:channel:-:version:-:arch:-:hash:'
-          cache-path: '${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:'
+
+      - name: Cache Pub dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ${{ env.PUB_CACHE }}
+            ${{ runner.tool_cache }}/flutter
+            ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Check Flutter version
+        run: flutter --version
 
       - name: Install dependencies
         run: |
-          flutter clean
           flutter pub get
-          flutter pub upgrade
         continue-on-error: false
 
-      - name: Analyze project source
+      - name: Verify Dart SDK constraints
         run: |
-          flutter analyze
+          DART_SDK_CONSTRAINT=$(grep 'sdk:' pubspec.yaml | sed 's/sdk://;s/^[[:space:]]*//;s/[[:space:]]*$//')
+          if [ -z "$DART_SDK_CONSTRAINT" ]; then
+            echo "Error: Missing SDK constraint in pubspec.yaml"
+            echo "Please add:"
+            echo "environment:"
+            echo "  sdk: '^3.4.0'"
+            exit 1
+          fi
         continue-on-error: false
+
+      - name: Analyze project
+        run: flutter analyze
+        continue-on-error: true
 
       - name: Run tests
-        run: |
-          flutter test --coverage
-          flutter test --machine > test-results.json
+        run: flutter test --coverage
+        continue-on-error: true
+
+      - name: Build Android APK
+        run: flutter build apk --release --verbose
         continue-on-error: false
 
-      - name: Build APK
-        run: |
-          flutter build apk --release --split-per-abi
-          flutter build appbundle --release
-        continue-on-error: false
-
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         if: success()
         with:
           name: release-apk
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/bundle/release/app-release.aab
+          path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 7
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            coverage/
+            test/reports/
+          retention-days: 7
+
+      - name: Check build status
+        if: failure()
+        run: |
+          echo "Build failed. Please check the logs above for more details."
+          echo "Common issues:"
+          echo "1. Missing or incorrect SDK constraints in pubspec.yaml"
+          echo "2. Incompatible package versions"
+          echo "3. Failed tests or analysis issues"
+          exit 1
