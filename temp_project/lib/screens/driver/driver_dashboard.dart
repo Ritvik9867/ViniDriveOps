@@ -102,7 +102,9 @@ class _DriverDashboardState extends State<DriverDashboard> {
             onPressed: () async {
               await _authService.logout();
               if (!mounted) return;
-              Navigator.pushReplacementNamed(context, '/');
+if (context.mounted) {
+  Navigator.pushReplacementNamed(context, '/');
+}
             },
           ),
         ],
