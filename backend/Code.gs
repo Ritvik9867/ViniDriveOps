@@ -152,11 +152,17 @@ function handleUploadImage(data) {
 
 // Helper functions
 function sendResponse(success, message, data = null) {
-  return ContentService.createTextOutput(JSON.stringify({
+  const response = ContentService.createTextOutput(JSON.stringify({
     success: success,
     message: message,
     data: data,
-  })).setMimeType(ContentService.MimeType.JSON);
+  }));
+  response.setMimeType(ContentService.MimeType.JSON);
+  response.setHeader('Access-Control-Allow-Origin', '*');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  return response;
 }
 
 function generateToken() {
