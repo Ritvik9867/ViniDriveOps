@@ -34,19 +34,21 @@ jobs:
 
       - name: Install dependencies
         run: |
-          flutter pub get
           flutter clean
+          flutter pub get
+          flutter pub upgrade
         continue-on-error: false
 
       - name: Analyze project source
         run: |
-          flutter analyze --no-fatal-infos
-          flutter pub run dart_code_metrics:metrics analyze lib
-        continue-on-error: true
+          flutter analyze
+        continue-on-error: false
 
       - name: Run tests
-        run: flutter test --coverage
-        continue-on-error: true
+        run: |
+          flutter test --coverage
+          flutter test --machine > test-results.json
+        continue-on-error: false
 
       - name: Build APK
         run: |
