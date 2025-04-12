@@ -26,12 +26,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Future<void> _pickImage() async {
     try {
       final pickedFile = await _imagePicker.pickImage(source: ImageSource.gallery);
+      if (!mounted) return;
+      
       if (pickedFile != null) {
         setState(() {
           _profileImage = File(pickedFile.path);
         });
       }
     } catch (e) {
+      if (!mounted) return;
+      
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to pick image')),
       );
@@ -64,18 +68,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       } else {
         setState(() {
           _errorMessage = result['message'] ?? 'Registration failed. Please try again.';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'An error occurred. Please try again.';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
           _isLoading = false;
         });
       }
+    } catch (e) {
+      if (!mounted) return;
+      
+      setState(() {
+        _errorMessage = 'An error occurred. Please try again.';
+        _isLoading = false;
+      });
     }
   }
 
