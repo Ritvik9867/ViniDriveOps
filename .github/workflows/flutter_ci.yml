@@ -6,147 +6,54 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
 env:
-  DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
   FLUTTER_VERSION: '3.16.9'
   JAVA_VERSION: '17'
   XCODE_VERSION: '15.2'
-  DART_SDK_VERSION: '>=3.2.6 <4.0.0'
 
 jobs:
-  validate:
-    name: Validate Environment
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      cache-hit: ${{ steps.flutter-cache.outputs.cache-hit }}
+    timeout-minutes: 30
+
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
-          cache: false
-      
-      - name: Cache Flutter dependencies
-        id: flutter-cache
+          cache: true
+
+      - name: Cache Flutter Dependencies
         uses: actions/cache@v3
         with:
           path: |
-            ${{ runner.tool_cache }}/flutter
+            ~/.pub-cache
+            .dart_tool
+            build
             **/.dart_tool
             **/.flutter-plugins
             **/.flutter-plugins-dependencies
-            **/.pub-cache
-            ${{ env.PUB_CACHE }}
           key: flutter-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: |
             flutter-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-
             flutter-${{ runner.os }}-
       
-      - name: Validate Flutter installation
-        run: |
-          flutter doctor -v
-          flutter --version
-          dart --version
-
-  analyze:
-    name: Static Analysis
-    needs: validate
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
-          cache: false
-      
-      - name: Restore Flutter cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ${{ runner.tool_cache }}/flutter
-            **/.dart_tool
-            **/.flutter-plugins
-            **/.flutter-plugins-dependencies
-            **/.pub-cache
-          key: flutter-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
-      
       - name: Install dependencies
         run: |
-          flutter pub get || {
-            echo "::warning::Failed to get dependencies. Retrying with upgrade..."
-            flutter pub upgrade
-            flutter pub get
-          }
-      
-      - name: Verify formatting
-        run: dart format --set-exit-if-changed .
-      
-      - name: Analyze project source
-        run: flutter analyze --fatal-infos
-      
-      - name: Run code generation
-        run: flutter pub run build_runner build --delete-conflicting-outputs
-      
-      - name: Run static analysis
-        run: |
-          flutter pub global activate custom_lint
-          flutter pub global run custom_lint
-      
-      - name: Check for outdated dependencies
-        run: flutter pub outdated
+          flutter pub get
+          flutter pub run build_runner build --delete-conflicting-outputs
 
-  test:
-    name: Run Tests
-    needs: analyze
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
-          cache: false
-      
-      - name: Restore Flutter cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ${{ runner.tool_cache }}/flutter
-            **/.dart_tool
-            **/.flutter-plugins
-            **/.flutter-plugins-dependencies
-            **/.pub-cache
-          key: flutter-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
-      
-      - name: Install dependencies
-        run: |
-          flutter pub get || {
-            echo "::warning::Failed to get dependencies. Retrying with upgrade..."
-            flutter pub upgrade
-            flutter pub get
-          }
-          flutter pub outdated
-      
-      - name: Run tests with coverage
+      - name: Run Tests
         run: flutter test --coverage
-      
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: coverage/lcov.info
-          fail_ci_if_error: false
-      
+
       - name: Store test results
         if: always()
         uses: actions/upload-artifact@v3
@@ -160,198 +67,23 @@ jobs:
     name: Build Android
     needs: test
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
+
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: ${{ env.JAVA_VERSION }}
           cache: 'gradle'
-      
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
-          cache: false
-      
-      - name: Restore Flutter cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ${{ runner.tool_cache }}/flutter
-            **/.dart_tool
-            **/.flutter-plugins
-            **/.flutter-plugins-dependencies
-            **/.pub-cache
-          key: flutter-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
-      
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-      
-      - name: Install dependencies
-        run: |
-          flutter pub get || {
-            echo "::warning::Failed to get dependencies. Retrying with upgrade..."
-            flutter pub upgrade
-            flutter pub get
-          }
-          flutter pub outdated
-      
-      - name: Setup Android signing
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_FILE }}
-          KEY_PROPERTIES: ${{ secrets.KEY_PROPERTIES }}
-        run: |
-          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEY_PROPERTIES" ]; then
-            mkdir -p android/app
-            echo "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
-            echo "$KEY_PROPERTIES" > android/key.properties
-          fi
-      
-      - name: Build Android APK
-        run: |
-          for i in 1 2 3; do
-            echo "Attempt $i: Building APK..."
-            if flutter build apk --release; then
-              echo "APK build successful!"
-              break
-            else
-              echo "::warning::APK build attempt $i failed."
-              flutter clean
-              flutter pub get
-              if [ $i -eq 3 ]; then
-                echo "::error::APK build failed after 3 attempts. Running flutter doctor for diagnostics..."
-                flutter doctor -v
-                exit 1
-              fi
-            fi
-          done
-      
-      - name: Build Android App Bundle
-        run: |
-          for i in 1 2 3; do
-            echo "Attempt $i: Building App Bundle..."
-            if flutter build appbundle --release; then
-              echo "App Bundle build successful!"
-              break
-            else
-              echo "::warning::App Bundle build attempt $i failed."
-              flutter clean
-              flutter pub get
-              if [ $i -eq 3 ]; then
-                echo "::error::App Bundle build failed after 3 attempts. Running flutter doctor for diagnostics..."
-                flutter doctor -v
-                exit 1
-              fi
-            fi
-          done
-      
-      - name: Upload Android builds
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-builds
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/bundle/release/app-release.aab
-          retention-days: 14
-
-  build-ios:
-    name: Build iOS
-    needs: test
-    runs-on: macos-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
-          cache: false
-      
-      - name: Restore Flutter cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ${{ runner.tool_cache }}/flutter
-            **/.dart_tool
-            **/.flutter-plugins
-            **/.flutter-plugins-dependencies
-            **/.pub-cache
-          key: flutter-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
-      
-      - name: Cache CocoaPods dependencies
-        uses: actions/cache@v3
-        with:
-          path: ios/Pods
-          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pods-
-      
-      - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
-      
-      - name: Install dependencies
-        run: |
-          flutter pub get
-          cd ios
-          pod install --repo-update
-          cd ..
-      
-      - name: Build iOS
-        run: |
-          for i in 1 2 3; do
-            echo "Attempt $i: Building iOS..."
-            if flutter build ios --release --no-codesign; then
-              echo "iOS build successful!"
-              break
-            else
-              echo "::warning::iOS build attempt $i failed."
-              flutter clean
-              flutter pub get
-              if [ $i -eq 3 ]; then
-                echo "::error::iOS build failed after 3 attempts. Running flutter doctor for diagnostics..."
-                flutter doctor -v
-                exit 1
-              fi
-            fi
-          done
-      
-      - name: Upload iOS build
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-build
-          path: build/ios/iphoneos
-          retention-days: 14
-
-  build:
-    name: Build and Test
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.16.9'
           channel: 'stable'
           cache: true
 
@@ -362,176 +94,145 @@ jobs:
             ~/.pub-cache
             .dart_tool
             build
-          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
+            **/.dart_tool
+            **/.flutter-plugins
+            **/.flutter-plugins-dependencies
+          key: flutter-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
+
+      - name: Cache Gradle Dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
-            ${{ runner.os }}-flutter-
-
-      - name: Install Dependencies
-        run: flutter pub get
-
-      - name: Run Tests
-        id: tests
-        run: flutter test --coverage
-        continue-on-error: true
-
-      - name: Check Test Results
-        if: always()
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: |
-          if [ "${{ steps.tests.outcome }}" == "failure" ]; then
-            if [ -n "$DISCORD_WEBHOOK_URL" ]; then
-              curl -H "Content-Type: application/json" -X POST -d '{
-                "embeds": [{
-                  "title": "❌ Tests Failed",
-                  "description": "Tests failed in the Flutter CI/CD pipeline",
-                  "color": 16711680,
-                  "fields": [
-                    {
-                      "name": "Repository",
-                      "value": "${{ github.repository }}",
-                      "inline": true
-                    },
-                    {
-                      "name": "Branch",
-                      "value": "${{ github.ref }}",
-                      "inline": true
-                    }
-                  ]
-                }]
-              }' "$DISCORD_WEBHOOK_URL"
-            fi
-            exit 1
-          fi
+            gradle-${{ runner.os }}-
 
       - name: Build APK
-        id: build_apk
-        run: flutter build apk --release
-        continue-on-error: true
+        run: |
+          flutter pub get
+          flutter build apk --release
 
       - name: Build App Bundle
-        id: build_bundle
         run: flutter build appbundle --release
-        continue-on-error: true
 
-      - name: Check Build Results
-        if: always()
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: |
-          if [ "${{ steps.build_apk.outcome }}" == "failure" ] || [ "${{ steps.build_bundle.outcome }}" == "failure" ]; then
-            if [ -n "$DISCORD_WEBHOOK_URL" ]; then
-              curl -H "Content-Type: application/json" -X POST -d '{
-                "embeds": [{
-                  "title": "❌ Build Failed",
-                  "description": "Build failed in the Flutter CI/CD pipeline",
-                  "color": 16711680,
-                  "fields": [
-                    {
-                      "name": "Repository",
-                      "value": "${{ github.repository }}",
-                      "inline": true
-                    },
-                    {
-                      "name": "Branch",
-                      "value": "${{ github.ref }}",
-                      "inline": true
-                    },
-                    {
-                      "name": "APK Build",
-                      "value": "${{ steps.build_apk.outcome }}",
-                      "inline": true
-                    },
-                    {
-                      "name": "Bundle Build",
-                      "value": "${{ steps.build_bundle.outcome }}",
-                      "inline": true
-                    }
-                  ]
-                }]
-              }' "$DISCORD_WEBHOOK_URL"
-            fi
-            exit 1
-          fi
-
-      - name: Upload APK
-        if: success()
+      - name: Store Android build
         uses: actions/upload-artifact@v3
         with:
-          name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: android-build
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+          retention-days: 14
 
-      - name: Upload Bundle
-        if: success()
+  build-ios:
+    name: Build iOS
+    needs: test
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Cache Flutter Dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool
+            build
+            **/.dart_tool
+            **/.flutter-plugins
+            **/.flutter-plugins-dependencies
+          key: flutter-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
+
+      - name: Cache CocoaPods Dependencies
+        uses: actions/cache@v3
+        with:
+          path: ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            pods-${{ runner.os }}-
+
+      - name: Install Dependencies
+        run: |
+          flutter pub get
+          cd ios && pod install && cd ..
+
+      - name: Build iOS
+        run: |
+          flutter build ios --release --no-codesign
+
+      - name: Store iOS build
         uses: actions/upload-artifact@v3
         with:
-          name: release-bundle
-          path: build/app/outputs/bundle/release/app-release.aab
-
-      - name: Notify Success
-        if: success()
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: |
-          if [ -n "$DISCORD_WEBHOOK_URL" ]; then
-            curl -H "Content-Type: application/json" -X POST -d '{
-              "embeds": [{
-                "title": "✅ Build Successful",
-                "description": "Flutter CI/CD pipeline completed successfully",
-                "color": 65280,
-                "fields": [
-                  {
-                    "name": "Repository",
-                    "value": "${{ github.repository }}",
-                    "inline": true
-                  },
-                  {
-                    "name": "Branch",
-                    "value": "${{ github.ref }}",
-                    "inline": true
-                  }
-                ]
-              }]
-            }' "$DISCORD_WEBHOOK_URL"
-          fi
+          name: ios-build
+          path: build/ios/iphoneos
+          retention-days: 14
 
   notify:
     name: Notify Status
     needs: [build-android, build-ios]
-    if: always()
     runs-on: ubuntu-latest
+    if: always()
+
     steps:
-      - name: Check build status
-        if: ${{ needs.build-android.result != 'success' || needs.build-ios.result != 'success' }}
-        run: exit 1
-      
-      - name: Send failure notification
-        if: failure() && github.ref == 'refs/heads/main'
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      - name: Check Build Status
+        id: status
         run: |
-          if [ -n "${{ env.DISCORD_WEBHOOK_URL }}" ]; then
-            curl -H "Content-Type: application/json" -X POST -d '{
-              "content": null,
-              "embeds": [{
-                "title": "⚠️ Build Failed",
-                "description": "The main branch build has failed. Please check the logs for details.",
-                "color": 15158332,
-                "fields": [
-                  {
-                    "name": "Repository",
-                    "value": "'$GITHUB_REPOSITORY'",
-                    "inline": true
-                  },
-                  {
-                    "name": "Commit",
-                    "value": "'$GITHUB_SHA'",
-                    "inline": true
-                  }
-                ],
-                "footer": {
-                  "text": "GitHub Actions CI/CD"
-                }
-              }]
-            }' "${{ env.DISCORD_WEBHOOK_URL }}"
+          if [[ "${{ needs.build-android.result }}" == "success" && "${{ needs.build-ios.result }}" == "success" ]]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "color=65280" >> $GITHUB_OUTPUT
+            echo "title= Build Successful" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "color=16711680" >> $GITHUB_OUTPUT
+            echo "title= Build Failed" >> $GITHUB_OUTPUT
           fi
+
+      - name: Send Discord Notification
+        if: ${{ vars.DISCORD_WEBHOOK_URL != '' }}
+        env:
+          DISCORD_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
+          BUILD_STATUS: ${{ steps.status.outputs.status }}
+          BUILD_COLOR: ${{ steps.status.outputs.color }}
+          BUILD_TITLE: ${{ steps.status.outputs.title }}
+        run: |
+          curl -H "Content-Type: application/json" -X POST -d '{
+            "embeds": [{
+              "title": "'"$BUILD_TITLE"'",
+              "description": "Flutter CI/CD pipeline completed",
+              "color": '"$BUILD_COLOR"',
+              "fields": [
+                {
+                  "name": "Repository",
+                  "value": "${{ github.repository }}",
+                  "inline": true
+                },
+                {
+                  "name": "Branch",
+                  "value": "${{ github.ref }}",
+                  "inline": true
+                },
+                {
+                  "name": "Status",
+                  "value": "'"${BUILD_STATUS^}"'",
+                  "inline": true
+                }
+              ]
+            }]
+          }' "$DISCORD_URL"
