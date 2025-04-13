@@ -48,17 +48,21 @@ jobs:
         run: |
           # Create logs directory
           mkdir -p .github/logs
-          touch .github/logs/workflow_logs.txt
           
-          # Set permissions
-          chmod 644 .github/logs/workflow_logs.txt
+          # Download logs
           python .github/scripts/download_logs.py \
             --run-id ${{ github.event.workflow_run.id }} \
             --token "$GH_TOKEN" \
-            --output workflow_logs.txt
-          # Verify file creation
-          if [ ! -f workflow_logs.txt ]; then
+            --output .github/logs/workflow_logs.txt
+          
+          # Verify file creation and content
+          if [ ! -f .github/logs/workflow_logs.txt ]; then
             echo "Error: workflow_logs.txt was not created"
+            exit 1
+          fi
+          
+          if [ ! -s .github/logs/workflow_logs.txt ]; then
+            echo "Error: workflow_logs.txt is empty"
             exit 1
           fi
 
@@ -77,7 +81,7 @@ jobs:
         run: |
           python .github/scripts/fix_workflow.py \
             --workflow-file .github/workflows/flutter_ci.yml \
-            --logs workflow_logs.txt \
+            --logs .github/logs/workflow_logs.txt \
             --max-retries $MAX_RETRIES \
             --openai-model "$OPENAI_MODEL" \
             --branch "$FIX_BRANCH" \
@@ -87,7 +91,7 @@ jobs:
         if: always()
         run: |
           python .github/scripts/create_summary.py \
-            --logs workflow_logs.txt \
+            --logs .github/logs/workflow_logs.txt \
             --output fix_summary.md
 
       - name: Create Pull Request

@@ -17,7 +17,8 @@ def download_workflow_logs(run_id, token, output_file):
         g = Github(token)
         
         # Get the repository from the environment
-        repo = g.get_repo(f"{g.get_organization('ViniDriveOps').login}/ViniDriveOps")
+        repo_name = f"{g.get_user().login}/ViniDriveOps"
+        repo = g.get_repo(repo_name)
         
         # Get the workflow run
         run = repo.get_workflow_run(run_id)
@@ -49,15 +50,18 @@ def download_workflow_logs(run_id, token, output_file):
                     'completed_at': step.completed_at.isoformat() if step.completed_at else None
                 }
                 
-                # Download step logs if available
-                # Download logs for all steps to provide complete context
-                try:
-                    log_content = job.get_logs()
-                    if log_content:
-                        step_logs['log_content'] = log_content
-                except Exception as e:
-                    print(f"Warning: Could not download logs for step {step.name}: {str(e)}")
-                    step_logs['log_content'] = f"Log download failed: {str(e)}"
+                # Download step logs if available and step has completed
+                if step.conclusion is not None:
+                    try:
+                        log_content = job.get_logs()
+                        if log_content:
+                            # Limit log content to avoid extremely large files
+                            step_logs['log_content'] = log_content[:10000]
+                            if len(log_content) > 10000:
+                                step_logs['log_content'] += "\n... (truncated)"
+                    except Exception as e:
+                        print(f"Warning: Could not download logs for step {step.name}: {str(e)}")
+                        step_logs['log_content'] = f"Log download failed: {str(e)}"
                 
                 job_logs['steps'].append(step_logs)
             
