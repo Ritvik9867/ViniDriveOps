@@ -1,16 +1,22 @@
+# Name of our workflow
 name: Flutter CI/CD
 
+# When should this workflow run?
 on:
+  # Run on push to main branch
   push:
     branches: [main]
+    # Only run when these files change
     paths:
-      - 'lib/**'
-      - 'test/**'
-      - 'android/**'
-      - 'ios/**'
-      - 'pubspec.yaml'
+      - 'lib/**'        # Source code changes
+      - 'test/**'       # Test file changes
+      - 'android/**'    # Android-specific changes
+      - 'ios/**'        # iOS-specific changes
+      - 'pubspec.yaml'  # Dependency changes
       - 'pubspec.lock'
       - '.github/workflows/**'
+  
+  # Run on pull requests to main branch
   pull_request:
     branches: [main]
     paths:
@@ -21,67 +27,98 @@ on:
       - 'pubspec.yaml'
       - 'pubspec.lock'
       - '.github/workflows/**'
+  
+  # Allow manual trigger
   workflow_dispatch:
 
+# Don't run multiple workflows for the same branch at once
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Global environment variables
 env:
-  FLUTTER_VERSION: '3.16.9'
-  JAVA_VERSION: '17'
-  DART_SDK_VERSION: '>=3.3.1 <4.0.0'
-  GRADLE_VERSION: '7.6'
-  ANDROID_SDK_VERSION: '33'
+  FLUTTER_VERSION: '3.16.9'    # Flutter SDK version
+  JAVA_VERSION: '17'           # Java version for Android builds
+  DART_SDK_VERSION: '>=3.3.1 <4.0.0'  # Dart SDK version constraints
+  GRADLE_VERSION: '7.6'        # Gradle version for Android builds
+  ANDROID_SDK_VERSION: '33'    # Android SDK version
+  FLUTTER_CACHE_PATH: ~/.pub-cache  # Flutter cache path
 
+# Workflow jobs
 jobs:
+  # Job 1: Check if everything is set up correctly
   validate-setup:
     name: Validate Project Setup
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      has_signing_secrets: ${{ steps.check_secrets.outputs.has_signing_secrets }}
     steps:
+      # Step 1: Get the code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check required secrets
+      # Step 2: Check if we have the required secrets for signing
+      - name: Verify required secrets
+        id: check_secrets
         if: github.event_name != 'pull_request'
-        run: |
-          if [[ -z "${{ secrets.KEYSTORE_FILE }}" ]]; then
-            echo "::error::Missing KEYSTORE_FILE secret. Please add it in repository settings."
-            exit 1
-          fi
-          if [[ -z "${{ secrets.KEY_PROPERTIES }}" ]]; then
-            echo "::error::Missing KEY_PROPERTIES secret. Please add it in repository settings."
-            exit 1
-          fi
         shell: bash
+        env:
+          HAS_KEYSTORE: ${{ secrets.KEYSTORE_FILE != '' }}
+          HAS_PROPERTIES: ${{ secrets.KEY_PROPERTIES != '' }}
+        run: |
+          # Function to check if a secret exists and is not empty
+          check_secret() {
+            secret_name="${1}"
+            has_secret="${2}"
+            if [ "$has_secret" != "true" ]; then
+              echo "::error::Missing $secret_name secret. Please add it in repository settings."
+              echo "To add secrets:"
+              echo "1. Go to your repository"
+              echo "2. Click Settings"
+              echo "3. Click Secrets and variables → Actions"
+              echo "4. Click 'New repository secret'"
+              echo "5. Add $secret_name"
+              exit 1
+            fi
+          }
+          
+          # Check Android signing secrets
+          check_secret "KEYSTORE_FILE" "$HAS_KEYSTORE"
+          check_secret "KEY_PROPERTIES" "$HAS_PROPERTIES"
+          
+          # Set output for other jobs
+          echo "has_signing_secrets=true" >> "$GITHUB_OUTPUT"
 
+      # Step 3: Check if pubspec.yaml exists and has correct SDK version
       - name: Verify pubspec.yaml
-        id: verify-pubspec
         run: |
           if [ ! -f "pubspec.yaml" ]; then
-            echo "::error::pubspec.yaml not found"
+            echo "::error::pubspec.yaml not found. Are you in the right directory?"
             exit 1
           fi
           
-          # Check SDK constraints
-          SDK_CONSTRAINT=$(grep -A 1 'environment:' pubspec.yaml | grep 'sdk:' || echo '')
-          if [ -z "$SDK_CONSTRAINT" ]; then
-            echo "Adding Dart SDK constraint to pubspec.yaml"
+          # Make sure SDK version is specified
+          if ! grep -q "sdk:" pubspec.yaml; then
+            echo "::warning::No SDK version found in pubspec.yaml. Adding it..."
             awk '/name:/{print;print "\nenvironment:\n  sdk: \"'"$DART_SDK_VERSION"'\"\n";next}1' pubspec.yaml > pubspec.yaml.tmp
             mv pubspec.yaml.tmp pubspec.yaml
           fi
         shell: bash
 
+  # Job 2: Check code quality
   code-quality:
     name: Code Quality Checks
-    needs: validate-setup
+    needs: validate-setup  # Wait for setup validation to finish
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # Step 1: Get the code
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Step 2: Set up Flutter
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -90,131 +127,126 @@ jobs:
           cache: true
           cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
 
-      - name: Verify Flutter installation
+      # Step 3: Verify Flutter installation
+      - name: Check Flutter version
         run: |
+          echo "Checking Flutter version..."
           flutter --version
           INSTALLED_VERSION=$(flutter --version | head -n 1 | awk '{print $2}')
           if [ "$INSTALLED_VERSION" != "${{ env.FLUTTER_VERSION }}" ]; then
-            echo "::warning::Installed Flutter version ($INSTALLED_VERSION) differs from requested version (${{ env.FLUTTER_VERSION }})"
+            echo "::warning::Flutter version mismatch. Expected ${{ env.FLUTTER_VERSION }}, got $INSTALLED_VERSION"
           fi
         shell: bash
 
-      - name: Cache Pub dependencies
+      # Step 4: Cache dependencies
+      - name: Cache Flutter packages
         uses: actions/cache@v3
         with:
-          path: |
-            ${{ runner.tool_cache }}/flutter
-            ${{ runner.home }}/.pub-cache
-            ~/.pub-cache
-            ~/AppData/Local/Pub/Cache
-            ~/Library/Caches/Pub
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
+          path: ${{ env.FLUTTER_CACHE_PATH }}
+          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: |
-            ${{ runner.os }}-pub-
+            ${{ runner.os }}-flutter-
 
+      # Step 5: Install dependencies
       - name: Install dependencies
         run: |
-          flutter pub get
-          if [ $? -ne 0 ]; then
-            echo "::error::Failed to get dependencies. Check your pubspec.yaml file."
+          echo "Installing Flutter packages..."
+          flutter pub get || {
+            echo "::error::Failed to install dependencies. Check pubspec.yaml for errors."
             exit 1
-          fi
+          }
 
-      - name: Check code formatting
+      # Step 6: Check code formatting
+      - name: Format check
         run: |
-          echo "Checking code formatting..."
-          dart format --output=none --set-exit-if-changed .
+          echo "Checking code format..."
+          dart format --output=none --set-exit-if-changed . || {
+            echo "::error::Code format check failed. Run 'dart format .' locally to fix."
+            exit 1
+          }
 
-      - name: Analyze project
+      # Step 7: Analyze code
+      - name: Code analysis
         run: |
-          echo "Running Flutter analyze..."
-          flutter analyze
+          echo "Analyzing code..."
+          flutter analyze || {
+            echo "::error::Code analysis failed. Please fix the issues above."
+            exit 1
+          }
 
+  # Job 3: Build and test the app
   build-and-test:
     name: Build and Test
-    needs: code-quality
+    needs: [code-quality, validate-setup]  # Wait for both jobs to finish
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
       matrix:
-        build-type: [apk, appbundle]
-      fail-fast: false
+        build-type: [apk, appbundle]  # Build both APK and App Bundle
+      fail-fast: false  # Continue with other builds if one fails
+
     steps:
+      # Step 1: Get the code
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Step 2: Set up Java for Android builds
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: ${{ env.JAVA_VERSION }}
           cache: 'gradle'
-          cache-dependency-path: "**/build.gradle*"
 
-      - name: Cache Gradle Wrapper
-        uses: actions/cache@v3
-        with:
-          path: ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('**/gradle-wrapper.properties') }}
-
+      # Step 3: Set up Flutter
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
           cache: true
-          cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
 
-      - name: Cache Pub dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ${{ runner.tool_cache }}/flutter
-            ${{ runner.home }}/.pub-cache
-            ~/.pub-cache
-            ~/AppData/Local/Pub/Cache
-            ~/Library/Caches/Pub
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
-
+      # Step 4: Install dependencies
       - name: Install dependencies
         run: |
-          echo "Installing Flutter dependencies..."
+          echo "Installing dependencies..."
           flutter clean
           flutter pub get || {
-            echo "::error::Failed to get dependencies"
+            echo "::error::Failed to install dependencies"
             exit 1
           }
-          echo "Dependencies installed successfully"
 
+      # Step 5: Set up Android signing (only for non-PR builds with secrets)
       - name: Setup Android signing
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && needs.validate-setup.outputs.has_signing_secrets == 'true'
         uses: timheuer/base64-to-file@v1.2
         with:
           fileName: 'keystore.jks'
           fileDir: './android/app/'
           encodedString: ${{ secrets.KEYSTORE_FILE }}
 
+      # Step 6: Create key.properties (only for non-PR builds with secrets)
       - name: Create key.properties
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && needs.validate-setup.outputs.has_signing_secrets == 'true'
+        shell: bash
         run: |
-          if [ ! -z "${{ secrets.KEY_PROPERTIES }}" ]; then
-            echo "${{ secrets.KEY_PROPERTIES }}" > android/key.properties
-          else
-            echo "::warning::KEY_PROPERTIES secret not found. Skipping release signing."
-          fi
+          echo "${{ secrets.KEY_PROPERTIES }}" > android/key.properties
 
+      # Step 7: Run tests
       - name: Run tests
         run: |
+          echo "Running tests..."
           mkdir -p test/reports
-          flutter test --coverage --machine > test-report.json || true
-          flutter test --coverage --test-randomize-ordering-seed random
+          flutter test --coverage || {
+            echo "::error::Tests failed. Check the error messages above."
+            exit 1
+          }
 
+      # Step 8: Build the app
       - name: Build Android ${{ matrix.build-type }}
         run: |
           if [ "${{ matrix.build-type }}" = "apk" ]; then
-            echo "Building release APK..."
+            echo "Building APK..."
             flutter build apk --release || {
               echo "::error::APK build failed"
               exit 1
@@ -227,7 +259,8 @@ jobs:
             }
           fi
 
-      - name: Upload build artifacts
+      # Step 9: Save the built app
+      - name: Upload build
         uses: actions/upload-artifact@v4
         if: success()
         with:
@@ -237,41 +270,44 @@ jobs:
             build/app/outputs/bundle/release/app-release.aab
           retention-days: 14
 
+      # Step 10: Save test results
       - name: Upload test results
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always()  # Upload even if tests fail
         with:
           name: test-results-${{ matrix.build-type }}
           path: |
             coverage/
             test/reports/
-            test-report.json
           retention-days: 14
 
-      - name: Build status summary
-        if: always()
+      # Step 11: Show build status
+      - name: Show build summary
         run: |
-          echo "Build Status Summary for ${{ matrix.build-type }}:"
+          echo "Build Status for ${{ matrix.build-type }}:"
           echo "-------------------"
-          echo "✓ Project setup validation"
-          echo "✓ Code quality checks"
-          echo "✓ Dependencies installation"
+          echo "✓ Setup complete"
+          echo "✓ Dependencies installed"
+          
+          # Check if tests passed
           if [ -f "coverage/lcov.info" ]; then
-            echo "✓ Tests executed (results in artifacts)"
+            echo "✓ Tests passed"
           else
             echo "❌ Tests failed"
             exit 1
           fi
+          
+          # Check if build succeeded
           if [ "${{ matrix.build-type }}" = "apk" ]; then
             if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
-              echo "✓ APK build successful"
+              echo "✓ APK built successfully"
             else
               echo "❌ APK build failed"
               exit 1
             fi
           else
             if [ -f "build/app/outputs/bundle/release/app-release.aab" ]; then
-              echo "✓ App Bundle build successful"
+              echo "✓ App Bundle built successfully"
             else
               echo "❌ App Bundle build failed"
               exit 1
