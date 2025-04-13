@@ -25,8 +25,10 @@ env:
   FLUTTER_VERSION: '3.16.9'
   JAVA_VERSION: '17'
   XCODE_VERSION: '15.2'
-  FLUTTER_CACHE_PATH: ~/.pub-cache
+  PUB_CACHE: ~/.pub-cache
   MIN_COVERAGE: 80
+  RETRY_TIMES: 2
+  RETRY_DELAY: 30
 
 jobs:
   setup:
@@ -43,11 +45,19 @@ jobs:
       - name: Cache pub dependencies
         uses: actions/cache@v3
         with:
-          path: ${{ env.FLUTTER_CACHE_PATH }}
+          path: ${{ env.PUB_CACHE }}
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: ${{ runner.os }}-pub-
+          restore-keys: |
+            ${{ runner.os }}-pub-
+      - name: Validate Flutter installation
+        run: flutter doctor -v
       - name: Install dependencies
-        run: flutter pub get
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 10
+          max_attempts: ${{ env.RETRY_TIMES }}
+          retry_wait_seconds: ${{ env.RETRY_DELAY }}
+          command: flutter pub get
       - name: Run code generation
         run: flutter pub run build_runner build --delete-conflicting-outputs
 
@@ -66,7 +76,7 @@ jobs:
       - name: Restore pub cache
         uses: actions/cache@v3
         with:
-          path: ${{ env.FLUTTER_CACHE_PATH }}
+          path: ${{ env.PUB_CACHE }}
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
       - name: Install dependencies
         run: flutter pub get
@@ -94,12 +104,19 @@ jobs:
       - name: Restore pub cache
         uses: actions/cache@v3
         with:
-          path: ${{ env.FLUTTER_CACHE_PATH }}
+          path: ${{ env.PUB_CACHE }}
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
       - name: Install dependencies
         run: flutter pub get
       - name: Run unit tests with coverage
-        run: flutter test --coverage
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 15
+          max_attempts: ${{ env.RETRY_TIMES }}
+          retry_wait_seconds: ${{ env.RETRY_DELAY }}
+          command: |
+            flutter test --coverage
+            lcov --remove coverage/lcov.info '**/*.g.dart' '**/*.freezed.dart' -o coverage/lcov.info
       - name: Check coverage threshold
         run: |
           COVERAGE=$(lcov --summary coverage/lcov.info | grep 'lines......' | cut -d ':' -f 2 | cut -d '%' -f 1 | tr -d ' ')
@@ -107,6 +124,7 @@ jobs:
             echo "Test coverage $COVERAGE% is below minimum $MIN_COVERAGE%"
             exit 1
           fi
+          echo "Test coverage: $COVERAGE%"
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
@@ -142,7 +160,7 @@ jobs:
       - name: Restore pub cache
         uses: actions/cache@v3
         with:
-          path: ${{ env.FLUTTER_CACHE_PATH }}
+          path: ${{ env.PUB_CACHE }}
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
       - name: Install dependencies
         run: flutter pub get
@@ -184,7 +202,7 @@ jobs:
       - name: Restore pub cache
         uses: actions/cache@v3
         with:
-          path: ${{ env.FLUTTER_CACHE_PATH }}
+          path: ${{ env.PUB_CACHE }}
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
@@ -216,7 +234,12 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
         uses: Ilshidur/action-discord@master
         with:
-          args: '🚨 Build failed for ${{ github.repository }} on main branch'
+          args: |
+            🚨 Build failed for ${{ github.repository }} on main branch
+            Workflow: ${{ github.workflow }}
+            Run: ${{ github.run_number }}
+            Commit: ${{ github.sha }}
+            See details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
   release:
     name: Create Release
