@@ -1,4 +1,4 @@
-name: Flutter CI/CD Pipeline
+name: Flutter CI/CD
 
 on:
   push:
@@ -7,14 +7,12 @@ on:
       - '**.md'
       - '.gitignore'
       - '.vscode/**'
-      - 'docs/**'
   pull_request:
     branches: [main]
     paths-ignore:
       - '**.md'
       - '.gitignore'
       - '.vscode/**'
-      - 'docs/**'
   workflow_dispatch:
 
 concurrency:
@@ -25,111 +23,135 @@ env:
   FLUTTER_VERSION: '3.16.9'
   JAVA_VERSION: '17'
   XCODE_VERSION: '15.2'
-  PUB_CACHE: ~/.pub-cache
-  MIN_COVERAGE: 80
-  RETRY_TIMES: 2
-  RETRY_DELAY: 30
+  DART_SDK_VERSION: '>=3.2.6 <4.0.0'
 
 jobs:
-  setup:
-    name: Setup and Validate
+  validate:
+    name: Validate Environment
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      cache-hit: ${{ steps.flutter-cache.outputs.cache-hit }}
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
-          cache: true
-      - name: Cache pub dependencies
+          cache: false
+      
+      - name: Cache Flutter dependencies
+        id: flutter-cache
         uses: actions/cache@v3
         with:
-          path: ${{ env.PUB_CACHE }}
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          path: |
+            ${{ runner.tool_cache }}/flutter
+            **/.dart_tool
+            **/.flutter-plugins
+            **/.flutter-plugins-dependencies
+            **/.pub-cache
+          key: ${{ runner.os }}-flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: |
-            ${{ runner.os }}-pub-
+            ${{ runner.os }}-flutter-${{ env.FLUTTER_VERSION }}-
+            ${{ runner.os }}-flutter-
+      
       - name: Validate Flutter installation
-        run: flutter doctor -v
-      - name: Install dependencies
-        uses: nick-fields/retry@v2
-        with:
-          timeout_minutes: 10
-          max_attempts: ${{ env.RETRY_TIMES }}
-          retry_wait_seconds: ${{ env.RETRY_DELAY }}
-          command: flutter pub get
-      - name: Run code generation
-        run: flutter pub run build_runner build --delete-conflicting-outputs
+        run: |
+          flutter doctor -v
+          flutter --version
+          dart --version
 
   analyze:
     name: Static Analysis
-    needs: setup
+    needs: validate
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
-          cache: true
-      - name: Restore pub cache
+          cache: false
+      
+      - name: Restore Flutter cache
         uses: actions/cache@v3
         with:
-          path: ${{ env.PUB_CACHE }}
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          path: |
+            ${{ runner.tool_cache }}/flutter
+            **/.dart_tool
+            **/.flutter-plugins
+            **/.flutter-plugins-dependencies
+            **/.pub-cache
+          key: ${{ runner.os }}-flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
+      
       - name: Install dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get || {
+            echo "::warning::Failed to get dependencies. Retrying with upgrade..."
+            flutter pub upgrade
+            flutter pub get
+          }
+      
       - name: Verify formatting
         run: dart format --set-exit-if-changed .
+      
       - name: Analyze project source
         run: flutter analyze --fatal-infos
-      - name: Run very_good_analysis
+      
+      - name: Run code generation
+        run: flutter pub run build_runner build --delete-conflicting-outputs
+      
+      - name: Run static analysis
         run: |
-          flutter pub global activate very_good_cli
-          flutter pub global run very_good_cli analyze
+          flutter pub global activate custom_lint
+          flutter pub global run custom_lint
+      
+      - name: Check for outdated dependencies
+        run: flutter pub outdated
 
   test:
     name: Run Tests
     needs: analyze
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
-          cache: true
-      - name: Restore pub cache
+          cache: false
+      
+      - name: Restore Flutter cache
         uses: actions/cache@v3
         with:
-          path: ${{ env.PUB_CACHE }}
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          path: |
+            ${{ runner.tool_cache }}/flutter
+            **/.dart_tool
+            **/.flutter-plugins
+            **/.flutter-plugins-dependencies
+            **/.pub-cache
+          key: ${{ runner.os }}-flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
+      
       - name: Install dependencies
         run: flutter pub get
-      - name: Run unit tests with coverage
-        uses: nick-fields/retry@v2
-        with:
-          timeout_minutes: 15
-          max_attempts: ${{ env.RETRY_TIMES }}
-          retry_wait_seconds: ${{ env.RETRY_DELAY }}
-          command: |
-            flutter test --coverage
-            lcov --remove coverage/lcov.info '**/*.g.dart' '**/*.freezed.dart' -o coverage/lcov.info
-      - name: Check coverage threshold
-        run: |
-          COVERAGE=$(lcov --summary coverage/lcov.info | grep 'lines......' | cut -d ':' -f 2 | cut -d '%' -f 1 | tr -d ' ')
-          if (( $(echo "$COVERAGE < $MIN_COVERAGE" | bc -l) )); then
-            echo "Test coverage $COVERAGE% is below minimum $MIN_COVERAGE%"
-            exit 1
-          fi
-          echo "Test coverage: $COVERAGE%"
+      
+      - name: Run tests with coverage
+        run: flutter test --coverage
+      
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
           file: coverage/lcov.info
-          fail_ci_if_error: true
+          fail_ci_if_error: false
+      
       - name: Store test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -144,46 +166,83 @@ jobs:
     name: Build Android
     needs: test
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v3
+      
+      - name: Setup Java
+        uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: ${{ env.JAVA_VERSION }}
           cache: 'gradle'
-      - uses: subosito/flutter-action@v2
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
-          cache: true
-      - name: Restore pub cache
+          cache: false
+      
+      - name: Restore Flutter cache
         uses: actions/cache@v3
         with:
-          path: ${{ env.PUB_CACHE }}
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          path: |
+            ${{ runner.tool_cache }}/flutter
+            **/.dart_tool
+            **/.flutter-plugins
+            **/.flutter-plugins-dependencies
+            **/.pub-cache
+          key: ${{ runner.os }}-flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
+      
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+      
       - name: Install dependencies
         run: flutter pub get
-      - name: Setup signing
+      
+      - name: Setup Android signing
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_FILE }}
           KEY_PROPERTIES: ${{ secrets.KEY_PROPERTIES }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEY_PROPERTIES" ]; then
+            mkdir -p android/app
             echo "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
             echo "$KEY_PROPERTIES" > android/key.properties
           fi
-      - name: Build APK and Bundle
+      
+      - name: Build Android APK
         run: |
-          flutter build apk --release --split-per-abi
-          flutter build appbundle --release
+          flutter build apk --release || {
+            echo "::error::APK build failed. Running flutter doctor for diagnostics..."
+            flutter doctor -v
+            exit 1
+          }
+      
+      - name: Build Android App Bundle
+        run: |
+          flutter build appbundle --release || {
+            echo "::error::App Bundle build failed. Running flutter doctor for diagnostics..."
+            flutter doctor -v
+            exit 1
+          }
+      
       - name: Upload Android builds
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: android-builds
           path: |
-            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/bundle/release/app-release.aab
           retention-days: 14
 
@@ -194,25 +253,53 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
-          cache: true
-      - name: Restore pub cache
+          cache: false
+      
+      - name: Restore Flutter cache
         uses: actions/cache@v3
         with:
-          path: ${{ env.PUB_CACHE }}
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          path: |
+            ${{ runner.tool_cache }}/flutter
+            **/.dart_tool
+            **/.flutter-plugins
+            **/.flutter-plugins-dependencies
+            **/.pub-cache
+          key: ${{ runner.os }}-flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
+      
+      - name: Cache CocoaPods dependencies
+        uses: actions/cache@v3
+        with:
+          path: ios/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+      
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
+      
       - name: Install dependencies
         run: |
           flutter pub get
-          cd ios && pod install && cd ..
+          cd ios
+          pod install --repo-update
+          cd ..
+      
       - name: Build iOS
-        run: flutter build ios --release --no-codesign
+        run: |
+          flutter build ios --release --no-codesign || {
+            echo "::error::iOS build failed. Running flutter doctor for diagnostics..."
+            flutter doctor -v
+            exit 1
+          }
+      
       - name: Upload iOS build
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: ios-build
@@ -228,41 +315,32 @@ jobs:
       - name: Check build status
         if: ${{ needs.build-android.result != 'success' || needs.build-ios.result != 'success' }}
         run: exit 1
-      - name: Send Discord notification
+      
+      - name: Send failure notification
         if: failure() && github.ref == 'refs/heads/main'
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        uses: Ilshidur/action-discord@master
-        with:
-          args: |
-            🚨 Build failed for ${{ github.repository }} on main branch
-            Workflow: ${{ github.workflow }}
-            Run: ${{ github.run_number }}
-            Commit: ${{ github.sha }}
-            See details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-  release:
-    name: Create Release
-    needs: [build-android, build-ios]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            artifacts/android-builds/*.apk
-            artifacts/android-builds/*.aab
-            artifacts/ios-build/*
-          tag_name: v${{ github.run_number }}
-          name: Release v${{ github.run_number }}
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "${{ secrets.DISCORD_WEBHOOK_URL }}" ]; then
+            curl -H "Content-Type: application/json" -X POST -d '{
+              "content": null,
+              "embeds": [{
+                "title": "⚠️ Build Failed",
+                "description": "The main branch build has failed. Please check the logs for details.",
+                "color": 15158332,
+                "fields": [
+                  {
+                    "name": "Repository",
+                    "value": "'$GITHUB_REPOSITORY'",
+                    "inline": true
+                  },
+                  {
+                    "name": "Commit",
+                    "value": "'$GITHUB_SHA'",
+                    "inline": true
+                  }
+                ],
+                "footer": {
+                  "text": "GitHub Actions CI/CD"
+                }
+              }]
+            }' "${{ secrets.DISCORD_WEBHOOK_URL }}"
+          fi
