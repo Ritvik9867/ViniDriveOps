@@ -9,6 +9,8 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: read
+  issues: write
 
 env:
   MAX_RETRIES: 5
@@ -44,10 +46,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Ensure directory exists
+          mkdir -p $(dirname workflow_logs.txt)
           python .github/scripts/download_logs.py \
             --run-id ${{ github.event.workflow_run.id }} \
             --token "$GH_TOKEN" \
             --output workflow_logs.txt
+          # Verify file creation
+          if [ ! -f workflow_logs.txt ]; then
+            echo "Error: workflow_logs.txt was not created"
+            exit 1
+          fi
 
       - name: Create Fix Branch
         run: |

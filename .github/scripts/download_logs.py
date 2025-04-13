@@ -13,7 +13,7 @@ def download_workflow_logs(run_id, token, output_file):
         g = Github(token)
         
         # Get the repository from the environment
-        repo = g.get_repo(f"{g.get_user().login}/ViniDriveOps")
+        repo = g.get_repo(f"{g.get_organization('ViniDriveOps').login}/ViniDriveOps")
         
         # Get the workflow run
         run = repo.get_workflow_run(run_id)
