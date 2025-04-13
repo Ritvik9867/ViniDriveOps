@@ -9,8 +9,11 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  actions: read
+  actions: write
   issues: write
+  workflows: write
+  packages: read
+  metadata: read
 
 env:
   MAX_RETRIES: 5
@@ -47,7 +50,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Create logs directory
-          mkdir -p .github/logs
+          New-Item -ItemType Directory -Force -Path .github/logs
           
           # Download logs
           python .github/scripts/download_logs.py \
@@ -56,15 +59,15 @@ jobs:
             --output .github/logs/workflow_logs.txt
           
           # Verify file creation and content
-          if [ ! -f .github/logs/workflow_logs.txt ]; then
-            echo "Error: workflow_logs.txt was not created"
+          if (-not (Test-Path .github/logs/workflow_logs.txt)) {
+            Write-Error "Error: workflow_logs.txt was not created"
             exit 1
-          fi
+          }
           
-          if [ ! -s .github/logs/workflow_logs.txt ]; then
-            echo "Error: workflow_logs.txt is empty"
+          if ((Get-Item .github/logs/workflow_logs.txt).length -eq 0) {
+            Write-Error "Error: workflow_logs.txt is empty"
             exit 1
-          fi
+          }
 
       - name: Create Fix Branch
         run: |
