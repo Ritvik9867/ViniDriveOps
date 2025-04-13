@@ -43,6 +43,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check required secrets
+        if: github.event_name != 'pull_request'
+        run: |
+          if [[ -z "${{ secrets.KEYSTORE_FILE }}" ]]; then
+            echo "::error::Missing KEYSTORE_FILE secret. Please add it in repository settings."
+            exit 1
+          fi
+          if [[ -z "${{ secrets.KEY_PROPERTIES }}" ]]; then
+            echo "::error::Missing KEY_PROPERTIES secret. Please add it in repository settings."
+            exit 1
+          fi
+        shell: bash
+
       - name: Verify pubspec.yaml
         id: verify-pubspec
         run: |
@@ -77,11 +90,21 @@ jobs:
           cache: true
           cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
 
+      - name: Verify Flutter installation
+        run: |
+          flutter --version
+          INSTALLED_VERSION=$(flutter --version | head -n 1 | awk '{print $2}')
+          if [ "$INSTALLED_VERSION" != "${{ env.FLUTTER_VERSION }}" ]; then
+            echo "::warning::Installed Flutter version ($INSTALLED_VERSION) differs from requested version (${{ env.FLUTTER_VERSION }})"
+          fi
+        shell: bash
+
       - name: Cache Pub dependencies
         uses: actions/cache@v3
         with:
           path: |
             ${{ runner.tool_cache }}/flutter
+            ${{ runner.home }}/.pub-cache
             ~/.pub-cache
             ~/AppData/Local/Pub/Cache
             ~/Library/Caches/Pub
@@ -90,7 +113,12 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Install dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get
+          if [ $? -ne 0 ]; then
+            echo "::error::Failed to get dependencies. Check your pubspec.yaml file."
+            exit 1
+          fi
 
       - name: Check code formatting
         run: |
@@ -142,6 +170,7 @@ jobs:
         with:
           path: |
             ${{ runner.tool_cache }}/flutter
+            ${{ runner.home }}/.pub-cache
             ~/.pub-cache
             ~/AppData/Local/Pub/Cache
             ~/Library/Caches/Pub
@@ -153,7 +182,10 @@ jobs:
         run: |
           echo "Installing Flutter dependencies..."
           flutter clean
-          flutter pub get
+          flutter pub get || {
+            echo "::error::Failed to get dependencies"
+            exit 1
+          }
           echo "Dependencies installed successfully"
 
       - name: Setup Android signing
@@ -166,7 +198,12 @@ jobs:
 
       - name: Create key.properties
         if: github.event_name != 'pull_request'
-        run: echo "${{ secrets.KEY_PROPERTIES }}" > android/key.properties
+        run: |
+          if [ ! -z "${{ secrets.KEY_PROPERTIES }}" ]; then
+            echo "${{ secrets.KEY_PROPERTIES }}" > android/key.properties
+          else
+            echo "::warning::KEY_PROPERTIES secret not found. Skipping release signing."
+          fi
 
       - name: Run tests
         run: |
@@ -178,10 +215,16 @@ jobs:
         run: |
           if [ "${{ matrix.build-type }}" = "apk" ]; then
             echo "Building release APK..."
-            flutter build apk --release
+            flutter build apk --release || {
+              echo "::error::APK build failed"
+              exit 1
+            }
           else
             echo "Building App Bundle..."
-            flutter build appbundle --release
+            flutter build appbundle --release || {
+              echo "::error::App Bundle build failed"
+              exit 1
+            }
           fi
 
       - name: Upload build artifacts
