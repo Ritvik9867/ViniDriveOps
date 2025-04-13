@@ -5,6 +5,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
+from pathlib import Path
 
 def create_markdown_summary(logs_content):
     """Create a markdown summary of the workflow fix attempt."""
