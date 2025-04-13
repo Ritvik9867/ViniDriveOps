@@ -46,8 +46,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Ensure directory exists
-          mkdir -p $(dirname workflow_logs.txt)
+          # Create logs directory
+          mkdir -p .github/logs
+          touch .github/logs/workflow_logs.txt
+          
+          # Set permissions
+          chmod 644 .github/logs/workflow_logs.txt
           python .github/scripts/download_logs.py \
             --run-id ${{ github.event.workflow_run.id }} \
             --token "$GH_TOKEN" \

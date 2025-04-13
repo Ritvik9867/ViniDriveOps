@@ -9,6 +9,10 @@ from pathlib import Path
 def download_workflow_logs(run_id, token, output_file):
     """Download logs from a GitHub Actions workflow run."""
     try:
+        # Ensure output directory exists
+        output_path = Path(output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
         # Initialize GitHub client
         g = Github(token)
         
@@ -46,8 +50,45 @@ def download_workflow_logs(run_id, token, output_file):
                 }
                 
                 # Download step logs if available
-                if step.conclusion == 'failure':
-                    try:
+                # Download logs for all steps to provide complete context
+                try:
+                    log_content = job.get_logs()
+                    if log_content:
+                        step_logs['log_content'] = log_content
+                except Exception as e:
+                    print(f"Warning: Could not download logs for step {step.name}: {str(e)}")
+                    step_logs['log_content'] = f"Log download failed: {str(e)}"
+                
+                job_logs['steps'].append(step_logs)
+            
+            logs['jobs'].append(job_logs)
+        
+        # Write logs to file
+        with open(output_file, 'w') as f:
+            json.dump(logs, f, indent=2)
+        
+        print(f"Successfully downloaded logs to {output_file}")
+        return True
+        
+    except Exception as e:
+        print(f"Error downloading logs: {str(e)}")
+        
+        # Create minimal log file with error information
+        error_logs = {
+            'error': str(e),
+            'workflow_name': 'Unknown',
+            'run_id': run_id,
+            'status': 'error',
+            'jobs': []
+        }
+        
+        try:
+            with open(output_file, 'w') as f:
+                json.dump(error_logs, f, indent=2)
+        except Exception as write_error:
+            print(f"Failed to write error log file: {str(write_error)}")
+        
+        return False
                         log_content = job.get_logs()
                         step_logs['log_content'] = log_content
                     except Exception as e:

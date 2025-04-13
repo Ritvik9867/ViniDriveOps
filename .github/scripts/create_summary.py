@@ -54,23 +54,35 @@ def create_markdown_summary(logs_content):
         return None
 
 def main():
-    parser = argparse.ArgumentParser(description='Create workflow fix summary')
-    parser.add_argument('--logs', required=True, help='Path to workflow logs')
-    parser.add_argument('--output', required=True, help='Output markdown file')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--logs', required=True, help='Path to the workflow logs JSON file')
+    parser.add_argument('--output', required=True, help='Path to save the markdown summary')
     
     args = parser.parse_args()
     
-    summary = create_markdown_summary(args.logs)
-    if not summary:
-        sys.exit(1)
-    
     try:
+        # Ensure output directory exists
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        summary = create_markdown_summary(args.logs)
+        
         with open(args.output, 'w') as f:
             f.write(summary)
-        print(f"Successfully created summary at {args.output}")
+        
+        print(f"Summary created successfully at {args.output}")
         sys.exit(0)
     except Exception as e:
-        print(f"Error writing summary: {str(e)}", file=sys.stderr)
+        print(f"Error creating summary: {str(e)}")
+        
+        # Write error summary if main summary fails
+        try:
+            error_summary = f"# Workflow Fix Attempt Summary\n\nError: Failed to create summary: {str(e)}"
+            with open(args.output, 'w') as f:
+                f.write(error_summary)
+        except Exception as write_error:
+            print(f"Failed to write error summary: {str(write_error)}")
+        
         sys.exit(1)
 
 if __name__ == '__main__':
