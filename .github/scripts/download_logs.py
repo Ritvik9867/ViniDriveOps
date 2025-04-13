@@ -89,25 +89,6 @@ def download_workflow_logs(run_id, token, output_file):
             print(f"Failed to write error log file: {str(write_error)}")
         
         return False
-                        log_content = job.get_logs()
-                        step_logs['log_content'] = log_content
-                    except Exception as e:
-                        step_logs['log_content'] = f"Error fetching logs: {str(e)}"
-                
-                job_logs['steps'].append(step_logs)
-            
-            logs['jobs'].append(job_logs)
-        
-        # Write logs to file
-        with open(output_file, 'w') as f:
-            json.dump(logs, f, indent=2)
-        
-        print(f"Successfully downloaded logs to {output_file}")
-        return True
-        
-    except Exception as e:
-        print(f"Error downloading logs: {str(e)}", file=sys.stderr)
-        return False
 
 def main():
     parser = argparse.ArgumentParser(description='Download GitHub Actions workflow logs')
