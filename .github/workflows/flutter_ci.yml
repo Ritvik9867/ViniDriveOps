@@ -52,7 +52,8 @@ jobs:
             **/.flutter-plugins
             **/.flutter-plugins-dependencies
             **/.pub-cache
-          key: ${{ runner.os }}-flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
+            ${{ env.PUB_CACHE }}
+          key: ${{ runner.os }}-flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock', '**/pubspec.yaml') }}
           restore-keys: |
             ${{ runner.os }}-flutter-${{ env.FLUTTER_VERSION }}-
             ${{ runner.os }}-flutter-
@@ -141,7 +142,13 @@ jobs:
           key: ${{ runner.os }}-flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
       
       - name: Install dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get || {
+            echo "::warning::Failed to get dependencies. Retrying with upgrade..."
+            flutter pub upgrade
+            flutter pub get
+          }
+          flutter pub outdated
       
       - name: Run tests with coverage
         run: flutter test --coverage
@@ -206,7 +213,13 @@ jobs:
             ${{ runner.os }}-gradle-
       
       - name: Install dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get || {
+            echo "::warning::Failed to get dependencies. Retrying with upgrade..."
+            flutter pub upgrade
+            flutter pub get
+          }
+          flutter pub outdated
       
       - name: Setup Android signing
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
@@ -222,19 +235,41 @@ jobs:
       
       - name: Build Android APK
         run: |
-          flutter build apk --release || {
-            echo "::error::APK build failed. Running flutter doctor for diagnostics..."
-            flutter doctor -v
-            exit 1
-          }
+          for i in 1 2 3; do
+            echo "Attempt $i: Building APK..."
+            if flutter build apk --release; then
+              echo "APK build successful!"
+              break
+            else
+              echo "::warning::APK build attempt $i failed."
+              flutter clean
+              flutter pub get
+              if [ $i -eq 3 ]; then
+                echo "::error::APK build failed after 3 attempts. Running flutter doctor for diagnostics..."
+                flutter doctor -v
+                exit 1
+              fi
+            fi
+          done
       
       - name: Build Android App Bundle
         run: |
-          flutter build appbundle --release || {
-            echo "::error::App Bundle build failed. Running flutter doctor for diagnostics..."
-            flutter doctor -v
-            exit 1
-          }
+          for i in 1 2 3; do
+            echo "Attempt $i: Building App Bundle..."
+            if flutter build appbundle --release; then
+              echo "App Bundle build successful!"
+              break
+            else
+              echo "::warning::App Bundle build attempt $i failed."
+              flutter clean
+              flutter pub get
+              if [ $i -eq 3 ]; then
+                echo "::error::App Bundle build failed after 3 attempts. Running flutter doctor for diagnostics..."
+                flutter doctor -v
+                exit 1
+              fi
+            fi
+          done
       
       - name: Upload Android builds
         if: success()
@@ -292,11 +327,22 @@ jobs:
       
       - name: Build iOS
         run: |
-          flutter build ios --release --no-codesign || {
-            echo "::error::iOS build failed. Running flutter doctor for diagnostics..."
-            flutter doctor -v
-            exit 1
-          }
+          for i in 1 2 3; do
+            echo "Attempt $i: Building iOS..."
+            if flutter build ios --release --no-codesign; then
+              echo "iOS build successful!"
+              break
+            else
+              echo "::warning::iOS build attempt $i failed."
+              flutter clean
+              flutter pub get
+              if [ $i -eq 3 ]; then
+                echo "::error::iOS build failed after 3 attempts. Running flutter doctor for diagnostics..."
+                flutter doctor -v
+                exit 1
+              fi
+            fi
+          done
       
       - name: Upload iOS build
         if: success()
