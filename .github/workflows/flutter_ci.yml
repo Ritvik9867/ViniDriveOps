@@ -2,24 +2,12 @@ name: Flutter CI/CD
 
 on:
   push:
-    branches: [main]
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-      - '.vscode/**'
+    branches: [ main ]
   pull_request:
-    branches: [main]
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-      - '.vscode/**'
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    branches: [ main ]
 
 env:
+  DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
   FLUTTER_VERSION: '3.16.9'
   JAVA_VERSION: '17'
   XCODE_VERSION: '15.2'
@@ -352,6 +340,162 @@ jobs:
           path: build/ios/iphoneos
           retention-days: 14
 
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.9'
+          channel: 'stable'
+          cache: true
+
+      - name: Cache Flutter Dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool
+            build
+          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Run Tests
+        id: tests
+        run: flutter test --coverage
+        continue-on-error: true
+
+      - name: Check Test Results
+        if: always()
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ "${{ steps.tests.outcome }}" == "failure" ]; then
+            if [ -n "$DISCORD_WEBHOOK_URL" ]; then
+              curl -H "Content-Type: application/json" -X POST -d '{
+                "embeds": [{
+                  "title": "❌ Tests Failed",
+                  "description": "Tests failed in the Flutter CI/CD pipeline",
+                  "color": 16711680,
+                  "fields": [
+                    {
+                      "name": "Repository",
+                      "value": "${{ github.repository }}",
+                      "inline": true
+                    },
+                    {
+                      "name": "Branch",
+                      "value": "${{ github.ref }}",
+                      "inline": true
+                    }
+                  ]
+                }]
+              }' "$DISCORD_WEBHOOK_URL"
+            fi
+            exit 1
+          fi
+
+      - name: Build APK
+        id: build_apk
+        run: flutter build apk --release
+        continue-on-error: true
+
+      - name: Build App Bundle
+        id: build_bundle
+        run: flutter build appbundle --release
+        continue-on-error: true
+
+      - name: Check Build Results
+        if: always()
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ "${{ steps.build_apk.outcome }}" == "failure" ] || [ "${{ steps.build_bundle.outcome }}" == "failure" ]; then
+            if [ -n "$DISCORD_WEBHOOK_URL" ]; then
+              curl -H "Content-Type: application/json" -X POST -d '{
+                "embeds": [{
+                  "title": "❌ Build Failed",
+                  "description": "Build failed in the Flutter CI/CD pipeline",
+                  "color": 16711680,
+                  "fields": [
+                    {
+                      "name": "Repository",
+                      "value": "${{ github.repository }}",
+                      "inline": true
+                    },
+                    {
+                      "name": "Branch",
+                      "value": "${{ github.ref }}",
+                      "inline": true
+                    },
+                    {
+                      "name": "APK Build",
+                      "value": "${{ steps.build_apk.outcome }}",
+                      "inline": true
+                    },
+                    {
+                      "name": "Bundle Build",
+                      "value": "${{ steps.build_bundle.outcome }}",
+                      "inline": true
+                    }
+                  ]
+                }]
+              }' "$DISCORD_WEBHOOK_URL"
+            fi
+            exit 1
+          fi
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload Bundle
+        if: success()
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-bundle
+          path: build/app/outputs/bundle/release/app-release.aab
+
+      - name: Notify Success
+        if: success()
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ -n "$DISCORD_WEBHOOK_URL" ]; then
+            curl -H "Content-Type: application/json" -X POST -d '{
+              "embeds": [{
+                "title": "✅ Build Successful",
+                "description": "Flutter CI/CD pipeline completed successfully",
+                "color": 65280,
+                "fields": [
+                  {
+                    "name": "Repository",
+                    "value": "${{ github.repository }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "Branch",
+                    "value": "${{ github.ref }}",
+                    "inline": true
+                  }
+                ]
+              }]
+            }' "$DISCORD_WEBHOOK_URL"
+          fi
+
   notify:
     name: Notify Status
     needs: [build-android, build-ios]
@@ -364,8 +508,10 @@ jobs:
       
       - name: Send failure notification
         if: failure() && github.ref == 'refs/heads/main'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          if [ -n "${{ secrets.DISCORD_WEBHOOK_URL }}" ]; then
+          if [ -n "${{ env.DISCORD_WEBHOOK_URL }}" ]; then
             curl -H "Content-Type: application/json" -X POST -d '{
               "content": null,
               "embeds": [{
@@ -388,5 +534,5 @@ jobs:
                   "text": "GitHub Actions CI/CD"
                 }
               }]
-            }' "${{ secrets.DISCORD_WEBHOOK_URL }}"
+            }' "${{ env.DISCORD_WEBHOOK_URL }}"
           fi
