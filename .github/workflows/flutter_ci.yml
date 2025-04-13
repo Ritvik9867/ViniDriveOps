@@ -1,315 +1,245 @@
-# Name of our workflow
-name: Flutter CI/CD
+name: Flutter CI/CD Pipeline
 
-# When should this workflow run?
 on:
-  # Run on push to main branch
   push:
     branches: [main]
-    # Only run when these files change
-    paths:
-      - 'lib/**'        # Source code changes
-      - 'test/**'       # Test file changes
-      - 'android/**'    # Android-specific changes
-      - 'ios/**'        # iOS-specific changes
-      - 'pubspec.yaml'  # Dependency changes
-      - 'pubspec.lock'
-      - '.github/workflows/**'
-  
-  # Run on pull requests to main branch
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - '.vscode/**'
+      - 'docs/**'
   pull_request:
     branches: [main]
-    paths:
-      - 'lib/**'
-      - 'test/**'
-      - 'android/**'
-      - 'ios/**'
-      - 'pubspec.yaml'
-      - 'pubspec.lock'
-      - '.github/workflows/**'
-  
-  # Allow manual trigger
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - '.vscode/**'
+      - 'docs/**'
   workflow_dispatch:
 
-# Don't run multiple workflows for the same branch at once
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Global environment variables
 env:
-  FLUTTER_VERSION: '3.16.9'    # Flutter SDK version
-  JAVA_VERSION: '17'           # Java version for Android builds
-  DART_SDK_VERSION: '>=3.3.1 <4.0.0'  # Dart SDK version constraints
-  GRADLE_VERSION: '7.6'        # Gradle version for Android builds
-  ANDROID_SDK_VERSION: '33'    # Android SDK version
-  FLUTTER_CACHE_PATH: ~/.pub-cache  # Flutter cache path
+  FLUTTER_VERSION: '3.16.9'
+  JAVA_VERSION: '17'
+  XCODE_VERSION: '15.2'
+  FLUTTER_CACHE_PATH: ~/.pub-cache
+  MIN_COVERAGE: 80
 
-# Workflow jobs
 jobs:
-  # Job 1: Check if everything is set up correctly
-  validate-setup:
-    name: Validate Project Setup
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      has_signing_secrets: ${{ steps.check_secrets.outputs.has_signing_secrets }}
-    steps:
-      # Step 1: Get the code
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # Step 2: Check if we have the required secrets for signing
-      - name: Verify required secrets
-        id: check_secrets
-        if: github.event_name != 'pull_request'
-        shell: bash
-        env:
-          HAS_KEYSTORE: ${{ secrets.KEYSTORE_FILE != '' }}
-          HAS_PROPERTIES: ${{ secrets.KEY_PROPERTIES != '' }}
-        run: |
-          # Function to check if a secret exists and is not empty
-          check_secret() {
-            secret_name="${1}"
-            has_secret="${2}"
-            if [ "$has_secret" != "true" ]; then
-              echo "::error::Missing $secret_name secret. Please add it in repository settings."
-              echo "To add secrets:"
-              echo "1. Go to your repository"
-              echo "2. Click Settings"
-              echo "3. Click Secrets and variables → Actions"
-              echo "4. Click 'New repository secret'"
-              echo "5. Add $secret_name"
-              exit 1
-            fi
-          }
-          
-          # Check Android signing secrets
-          check_secret "KEYSTORE_FILE" "$HAS_KEYSTORE"
-          check_secret "KEY_PROPERTIES" "$HAS_PROPERTIES"
-          
-          # Set output for other jobs
-          echo "has_signing_secrets=true" >> "$GITHUB_OUTPUT"
-
-      # Step 3: Check if pubspec.yaml exists and has correct SDK version
-      - name: Verify pubspec.yaml
-        run: |
-          if [ ! -f "pubspec.yaml" ]; then
-            echo "::error::pubspec.yaml not found. Are you in the right directory?"
-            exit 1
-          fi
-          
-          # Make sure SDK version is specified
-          if ! grep -q "sdk:" pubspec.yaml; then
-            echo "::warning::No SDK version found in pubspec.yaml. Adding it..."
-            awk '/name:/{print;print "\nenvironment:\n  sdk: \"'"$DART_SDK_VERSION"'\"\n";next}1' pubspec.yaml > pubspec.yaml.tmp
-            mv pubspec.yaml.tmp pubspec.yaml
-          fi
-        shell: bash
-
-  # Job 2: Check code quality
-  code-quality:
-    name: Code Quality Checks
-    needs: validate-setup  # Wait for setup validation to finish
+  setup:
+    name: Setup and Validate
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      # Step 1: Get the code
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # Step 2: Set up Flutter
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
           cache: true
-          cache-key: flutter-${{ env.FLUTTER_VERSION }}-${{ hashFiles('**/pubspec.lock') }}
-
-      # Step 3: Verify Flutter installation
-      - name: Check Flutter version
-        run: |
-          echo "Checking Flutter version..."
-          flutter --version
-          INSTALLED_VERSION=$(flutter --version | head -n 1 | awk '{print $2}')
-          if [ "$INSTALLED_VERSION" != "${{ env.FLUTTER_VERSION }}" ]; then
-            echo "::warning::Flutter version mismatch. Expected ${{ env.FLUTTER_VERSION }}, got $INSTALLED_VERSION"
-          fi
-        shell: bash
-
-      # Step 4: Cache dependencies
-      - name: Cache Flutter packages
+      - name: Cache pub dependencies
         uses: actions/cache@v3
         with:
           path: ${{ env.FLUTTER_CACHE_PATH }}
-          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-
-
-      # Step 5: Install dependencies
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: ${{ runner.os }}-pub-
       - name: Install dependencies
-        run: |
-          echo "Installing Flutter packages..."
-          flutter pub get || {
-            echo "::error::Failed to install dependencies. Check pubspec.yaml for errors."
-            exit 1
-          }
+        run: flutter pub get
+      - name: Run code generation
+        run: flutter pub run build_runner build --delete-conflicting-outputs
 
-      # Step 6: Check code formatting
-      - name: Format check
-        run: |
-          echo "Checking code format..."
-          dart format --output=none --set-exit-if-changed . || {
-            echo "::error::Code format check failed. Run 'dart format .' locally to fix."
-            exit 1
-          }
-
-      # Step 7: Analyze code
-      - name: Code analysis
-        run: |
-          echo "Analyzing code..."
-          flutter analyze || {
-            echo "::error::Code analysis failed. Please fix the issues above."
-            exit 1
-          }
-
-  # Job 3: Build and test the app
-  build-and-test:
-    name: Build and Test
-    needs: [code-quality, validate-setup]  # Wait for both jobs to finish
+  analyze:
+    name: Static Analysis
+    needs: setup
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    strategy:
-      matrix:
-        build-type: [apk, appbundle]  # Build both APK and App Bundle
-      fail-fast: false  # Continue with other builds if one fails
-
+    timeout-minutes: 10
     steps:
-      # Step 1: Get the code
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # Step 2: Set up Java for Android builds
-      - name: Setup Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: 'gradle'
-
-      # Step 3: Set up Flutter
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
           cache: true
-
-      # Step 4: Install dependencies
+      - name: Restore pub cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.FLUTTER_CACHE_PATH }}
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
       - name: Install dependencies
+        run: flutter pub get
+      - name: Verify formatting
+        run: dart format --set-exit-if-changed .
+      - name: Analyze project source
+        run: flutter analyze --fatal-infos
+      - name: Run very_good_analysis
         run: |
-          echo "Installing dependencies..."
-          flutter clean
-          flutter pub get || {
-            echo "::error::Failed to install dependencies"
-            exit 1
-          }
+          flutter pub global activate very_good_cli
+          flutter pub global run very_good_cli analyze
 
-      # Step 5: Set up Android signing (only for non-PR builds with secrets)
-      - name: Setup Android signing
-        if: github.event_name != 'pull_request' && needs.validate-setup.outputs.has_signing_secrets == 'true'
-        uses: timheuer/base64-to-file@v1.2
+  test:
+    name: Run Tests
+    needs: analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
         with:
-          fileName: 'keystore.jks'
-          fileDir: './android/app/'
-          encodedString: ${{ secrets.KEYSTORE_FILE }}
-
-      # Step 6: Create key.properties (only for non-PR builds with secrets)
-      - name: Create key.properties
-        if: github.event_name != 'pull_request' && needs.validate-setup.outputs.has_signing_secrets == 'true'
-        shell: bash
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+      - name: Restore pub cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.FLUTTER_CACHE_PATH }}
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Run unit tests with coverage
+        run: flutter test --coverage
+      - name: Check coverage threshold
         run: |
-          echo "${{ secrets.KEY_PROPERTIES }}" > android/key.properties
-
-      # Step 7: Run tests
-      - name: Run tests
-        run: |
-          echo "Running tests..."
-          mkdir -p test/reports
-          flutter test --coverage || {
-            echo "::error::Tests failed. Check the error messages above."
+          COVERAGE=$(lcov --summary coverage/lcov.info | grep 'lines......' | cut -d ':' -f 2 | cut -d '%' -f 1 | tr -d ' ')
+          if (( $(echo "$COVERAGE < $MIN_COVERAGE" | bc -l) )); then
+            echo "Test coverage $COVERAGE% is below minimum $MIN_COVERAGE%"
             exit 1
-          }
-
-      # Step 8: Build the app
-      - name: Build Android ${{ matrix.build-type }}
-        run: |
-          if [ "${{ matrix.build-type }}" = "apk" ]; then
-            echo "Building APK..."
-            flutter build apk --release || {
-              echo "::error::APK build failed"
-              exit 1
-            }
-          else
-            echo "Building App Bundle..."
-            flutter build appbundle --release || {
-              echo "::error::App Bundle build failed"
-              exit 1
-            }
           fi
-
-      # Step 9: Save the built app
-      - name: Upload build
-        uses: actions/upload-artifact@v4
-        if: success()
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
         with:
-          name: release-${{ matrix.build-type }}
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/bundle/release/app-release.aab
-          retention-days: 14
-
-      # Step 10: Save test results
-      - name: Upload test results
+          file: coverage/lcov.info
+          fail_ci_if_error: true
+      - name: Store test results
+        if: always()
         uses: actions/upload-artifact@v4
-        if: always()  # Upload even if tests fail
         with:
-          name: test-results-${{ matrix.build-type }}
+          name: test-results
           path: |
             coverage/
             test/reports/
           retention-days: 14
 
-      # Step 11: Show build status
-      - name: Show build summary
+  build-android:
+    name: Build Android
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: 'gradle'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+      - name: Restore pub cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.FLUTTER_CACHE_PATH }}
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Setup signing
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_FILE }}
+          KEY_PROPERTIES: ${{ secrets.KEY_PROPERTIES }}
         run: |
-          echo "Build Status for ${{ matrix.build-type }}:"
-          echo "-------------------"
-          echo "✓ Setup complete"
-          echo "✓ Dependencies installed"
-          
-          # Check if tests passed
-          if [ -f "coverage/lcov.info" ]; then
-            echo "✓ Tests passed"
-          else
-            echo "❌ Tests failed"
-            exit 1
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEY_PROPERTIES" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
+            echo "$KEY_PROPERTIES" > android/key.properties
           fi
-          
-          # Check if build succeeded
-          if [ "${{ matrix.build-type }}" = "apk" ]; then
-            if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
-              echo "✓ APK built successfully"
-            else
-              echo "❌ APK build failed"
-              exit 1
-            fi
-          else
-            if [ -f "build/app/outputs/bundle/release/app-release.aab" ]; then
-              echo "✓ App Bundle built successfully"
-            else
-              echo "❌ App Bundle build failed"
-              exit 1
-            fi
-          fi
+      - name: Build APK and Bundle
+        run: |
+          flutter build apk --release --split-per-abi
+          flutter build appbundle --release
+      - name: Upload Android builds
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-builds
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/bundle/release/app-release.aab
+          retention-days: 14
+
+  build-ios:
+    name: Build iOS
+    needs: test
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+      - name: Restore pub cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.FLUTTER_CACHE_PATH }}
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
+      - name: Install dependencies
+        run: |
+          flutter pub get
+          cd ios && pod install && cd ..
+      - name: Build iOS
+        run: flutter build ios --release --no-codesign
+      - name: Upload iOS build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build
+          path: build/ios/iphoneos
+          retention-days: 14
+
+  notify:
+    name: Notify Status
+    needs: [build-android, build-ios]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check build status
+        if: ${{ needs.build-android.result != 'success' || needs.build-ios.result != 'success' }}
+        run: exit 1
+      - name: Send Discord notification
+        if: failure() && github.ref == 'refs/heads/main'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        uses: Ilshidur/action-discord@master
+        with:
+          args: '🚨 Build failed for ${{ github.repository }} on main branch'
+
+  release:
+    name: Create Release
+    needs: [build-android, build-ios]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/android-builds/*.apk
+            artifacts/android-builds/*.aab
+            artifacts/ios-build/*
+          tag_name: v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
